@@ -50,10 +50,6 @@ And then execute:
 
     $ bundle
 
-Or install it yourself for testing:
-
-    $ gem install scraper_utils
-
 Usage
 -----
 
@@ -101,12 +97,12 @@ export DEBUG=1
 Add `client_options` to your AUTHORITIES configuration and move any of the following settings into it:
 
 * `timeout: Integer` - Timeout for agent connections in case the server is slower than normal
-* `australian_proxy: true` - Use the MORPH_AUSTRALIAN_PROXY as proxy url if the site is geo-locked
+* `australian_proxy: true` - Use the proxy url in the `MORPH_AUSTRALIAN_PROXY` env variable if the site is geo-locked
 * `disable_ssl_certificate_check: true` - Disabled SSL verification for old / incorrect certificates
 
 See the documentation on `ScraperUtils::MechanizeUtils::AgentConfig` for more options
 
-Then adjust your code to accept client_options and pass then through to:
+Then adjust your code to accept `client_options` and pass then through to:
 `ScraperUtils::MechanizeUtils.mechanize_agent(client_options || {})`
 to receive a `Mechanize::Agent` configured accordingly.
 
@@ -130,115 +126,28 @@ end
 You can modify these global defaults before creating any Mechanize agents. These settings will be used for all Mechanize
 agents created by `ScraperUtils::MechanizeUtils.mechanize_agent` unless overridden by passing parameters to that method.
 
-### Example updated `scraper.rb` file
-
-Update your `scraper.rb` as per the following example for basic utilities:
+To speed up testing, set the following in `spec_helper.rb`:
 
 ```ruby
-#!/usr/bin/env ruby
-# frozen_string_literal: true
-
-$LOAD_PATH << "./lib"
-
-require "scraper_utils"
-require "technology_one_scraper"
-
-# Main Scraper class
-class Scraper
-  AUTHORITIES = YourScraper::AUTHORITIES
-
-  # ADD: attempt argument
-  def scrape(authorities, attempt)
-    exceptions = {}
-    # ADD: Report attempt number
-    authorities.each do |authority_label|
-      puts "\nCollecting feed data for #{authority_label}, attempt: #{attempt}..."
-
-      begin
-        # REPLACE:
-        # YourScraper.scrape(authority_label) do |record|
-        #   record["authority_label"] = authority_label.to_s
-        #   YourScraper.log(record)
-        #   ScraperWiki.save_sqlite(%w[authority_label council_reference], record)
-        # end
-        # WITH:
-        ScraperUtils::DataQualityMonitor.start_authority(authority_label)
-        YourScraper.scrape(authority_label) do |record|
-          begin
-            record["authority_label"] = authority_label.to_s
-            ScraperUtils::DbUtils.save_record(record)
-          rescue ScraperUtils::UnprocessableRecord => e
-            ScraperUtils::DataQualityMonitor.log_unprocessable_record(e, record)
-            exceptions[authority_label] = e
-          end
-        end
-        # END OF REPLACE
-      end
-    rescue StandardError => e
-      warn "#{authority_label}: ERROR: #{e}"
-      warn e.backtrace
-      exceptions[authority_label] = e
-    end
-
-    exceptions
-  end
-
-  def self.selected_authorities
-    ScraperUtils::AuthorityUtils.selected_authorities(AUTHORITIES.keys)
-  end
-
-  def self.run(authorities)
-    puts "Scraping authorities: #{authorities.join(', ')}"
-    start_time = Time.now
-    exceptions = scrape(authorities, 1)
-    # Set start_time and attempt to the call above and log run below
-    ScraperUtils::LogUtils.log_scraping_run(
-      start_time,
-      1,
-      authorities,
-      exceptions
-    )
-
-    unless exceptions.empty?
-      puts "\n***************************************************"
-      puts "Now retrying authorities which earlier had failures"
-      puts exceptions.keys.join(", ").to_s
-      puts "***************************************************"
-
-      start_time = Time.now
-      exceptions = scrape(exceptions.keys, 2)
-      # Set start_time and attempt to the call above and log run below
-      ScraperUtils::LogUtils.log_scraping_run(
-        start_time,
-        2,
-        authorities,
-        exceptions
-      )
-    end
-
-    # Report on results, raising errors for unexpected conditions
-    ScraperUtils::LogUtils.report_on_results(authorities, exceptions)
-  end
-end
-
-if __FILE__ == $PROGRAM_NAME
-  # Default to list of authorities we can't or won't fix in code, explain why
-  # wagga: url redirects and then reports Application error
-
-  ENV["MORPH_EXPECT_BAD"] ||= "wagga"
-  Scraper.run(Scraper.selected_authorities)
+ScraperUtils::MechanizeUtils::AgentConfig.configure do |config|
+  config.default_random_delay = nil
+  config.default_max_load = 33
 end
 ```
+
+### Example updated `scraper.rb` file
+
+Update your `scraper.rb` as per the [example scraper](docs/example_scraper.rb).
 
 Your code should raise ScraperUtils::UnprocessableRecord when there is a problem with the data presented on a page for a
 record.
 Then just before you would normally yield a record for saving, rescue that exception and:
 
-* Call ScraperUtils::DataQualityMonitor.log_unprocessable_record(e, record)
+* Call `ScraperUtils::DataQualityMonitor.log_unprocessable_record(e, record)`
 * NOT yield the record for saving
 
 In your code update where create a mechanize agent (often `YourScraper.scrape_period`) and the `AUTHORITIES` hash
-to move mechanize_agent options (like `australian_proxy` and `timeout`) to a hash under a new key: `client_options`.
+to move Mechanize agent options (like `australian_proxy` and `timeout`) to a hash under a new key: `client_options`.
 For example:
 
 ```ruby
@@ -297,44 +206,33 @@ The `ScraperUtils::FiberScheduler` provides a lightweight utility that:
 * thus optimizing the total scraper run time
 * allows you to increase the random delay for authorities without undue effect on total run time
 * For the curious, it uses [ruby fibers](https://ruby-doc.org/core-2.5.8/Fiber.html) rather than threads as that is
-  simpler to get right and debug!
+  a simpler system and thus easier to get right, understand and debug!
 
-To enable change the scrape method in the example above to;
-
-```ruby
-
-def scrape(authorities, attempt)
-  ScraperUtils::FiberScheduler.reset!
-  exceptions = {}
-  authorities.each do |authority_label|
-    ScraperUtils::FiberScheduler.register_operation(authority_label) do
-      ScraperUtils::FiberScheduler.log "Collecting feed data for #{authority_label}, attempt: #{attempt}..."
-      begin
-        ScraperUtils::DataQualityMonitor.start_authority(authority_label)
-        YourScraper.scrape(authority_label) do |record|
-          begin
-            record["authority_label"] = authority_label.to_s
-            ScraperUtils::DbUtils.save_record(record)
-          rescue ScraperUtils::UnprocessableRecord => e
-            ScraperUtils::DataQualityMonitor.log_unprocessable_record(e, record)
-            exceptions[authority_label] = e
-          end
-        end
-      rescue StandardError => e
-        warn "#{authority_label}: ERROR: #{e}"
-        warn e.backtrace
-        exceptions[authority_label] = e
-      end
-    end # end of register_operation block
-  end
-  ScraperUtils::FiberScheduler.run_all
-  exceptions
-end
-```
+To enable change the scrape method to be like [example scrape method using fibers](docs/example_scrape_with_fibers.rb) 
 
 And use `ScraperUtils::FiberScheduler.log` instead of `puts` when logging within the authority processing code.
 This will prefix the output lines with the authority name, which is needed since the system will interleave the work and
 thus the output.
+
+This uses `ScraperUtils::RandomizeUtils` as described below. Remember to add the recommended line to `spec/spec_heper.rb`.
+
+Randomizing Requests
+--------------------
+ 
+Pass a `Collection` or `Array` to `ScraperUtils::RandomizeUtils.randomize_order` to randomize it in production, but receive in as is when testing.
+
+Use this with the list of records scraped from an index to randomise the requests to be less Bot like.
+
+### Spec setup
+
+You should enforce sequential mode when testing by adding the following code to `spec/spec_helper.rb`:
+```
+ScraperUtils::RandomizeUtils.sequential = true
+```
+
+Note: 
+* You can also force sequential mode by setting the env variable `MORPH_PROCESS_SEQUENTIALLY` to a value, eg: `1`
+* testing using VCR requires sequential mode
 
 Development
 -----------
@@ -356,7 +254,7 @@ NOTE: You need to use ruby 3.2.2 instead of 2.5.8 to release to OTP protected ac
 Contributing
 ------------
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/ianheggie-oaf/scraper_utils
+Bug reports and pull requests with working tests are welcome on [GitHub](https://github.com/ianheggie-oaf/scraper_utils)
 
 CHANGELOG.md is maintained by the author aiming to follow https://github.com/vweevers/common-changelog
 
@@ -364,3 +262,4 @@ License
 -------
 
 The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
+
