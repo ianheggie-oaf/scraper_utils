@@ -24,10 +24,14 @@ class AdaptiveDelay
     @max_load = max_load.to_f.clamp(1.0, 99.0)
     @response_multiplier = (100.0 - @max_load) / @max_load
 
-    if ENV["DEBUG"]
-      ScraperUtils::FiberScheduler.log "AdaptiveDelay initialized with delays between #{@min_delay} and #{@max_delay} seconds"
-      ScraperUtils::FiberScheduler.log "Using max_load of #{@max_load}% (response time multiplier: #{@response_multiplier.round(2)}x)"
-    end
+    return unless ENV["DEBUG"]
+
+    ScraperUtils::FiberScheduler.log(
+      "AdaptiveDelay initialized with delays between #{@min_delay} and #{@max_delay} seconds"
+    )
+    ScraperUtils::FiberScheduler.log(
+      "Using max_load of #{@max_load}% (response multiplier: #{@response_multiplier.round(2)}x)"
+    )
   end
 
   # @param uri [URI::Generic, String] The URL to extract the domain from
@@ -54,9 +58,10 @@ class AdaptiveDelay
     delay = delay.clamp(@min_delay, @max_delay)
 
     if ENV["DEBUG"]
-      ScraperUtils::FiberScheduler.log "Adaptive delay for #{uris_domain} updated to " \
-             "#{delay.round(2)}s (target: #{@response_multiplier.round(1)}x " \
-             "response_time of #{response_time.round(2)}s)"
+      ScraperUtils::FiberScheduler.log(
+        "Adaptive delay for #{uris_domain} updated to #{delay.round(2)}s (target: " \
+        "#{@response_multiplier.round(1)}x response_time of #{response_time.round(2)}s)"
+      )
     end
 
     @delays[uris_domain] = delay

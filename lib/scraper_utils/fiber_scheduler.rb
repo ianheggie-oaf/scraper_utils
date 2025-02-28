@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'fiber'
+require "fiber"
 
 module ScraperUtils
   # A utility module for interleaving multiple scraping operations
@@ -24,6 +24,7 @@ module ScraperUtils
     # @return [String, nil] the authority name or nil if not in a fiber
     def self.current_authority
       return nil unless in_fiber?
+
       Fiber.current.instance_variable_get(:@authority)
     end
 
@@ -47,7 +48,7 @@ module ScraperUtils
       @exceptions ||= {}
     end
 
-    # Returns a hash of values which will be the values yielded along the way then the block value when it completes
+    # Returns a hash of the yielded / block values
     #
     # @return [Hash{Symbol => Any}] values by authority
     def self.values
@@ -76,7 +77,7 @@ module ScraperUtils
       @enabled = false
     end
 
-    # Resets the scheduler state, and disables the scheduler. Use this before retrying failed authorities.
+    # Resets the scheduler state, and disables. Use before retrying failed authorities.
     #
     # @return [void]
     def self.reset!
@@ -94,21 +95,19 @@ module ScraperUtils
     #
     # @param authority [String] the name of the authority being processed
     # @yield to the block containing the scraping operation to be run in the fiber
-    # @return [Fiber] the created fiber that calls the block. With @authority and @resume_at instance variables
+    # @return [Fiber] a fiber that calls the block. With @authority and @resume_at instance vars
     def self.register_operation(authority, &block)
       # Automatically enable fiber scheduling when operations are registered
       enable!
 
       fiber = Fiber.new do
-        begin
-          values[authority] = block.call
-        rescue StandardError => e
-          # Store exception against the authority
-          exceptions[authority] = e
-        ensure
-          # Remove itself when done regardless of success/failure
-          registry.delete(Fiber.current)
-        end
+        values[authority] = block.call
+      rescue StandardError => e
+        # Store exception against the authority
+        exceptions[authority] = e
+      ensure
+        # Remove itself when done regardless of success/failure
+        registry.delete(Fiber.current)
       end
 
       # Start fibres in registration order
@@ -117,9 +116,11 @@ module ScraperUtils
       fiber.instance_variable_set(:@authority, authority)
       registry << fiber
 
-      puts "Registered #{authority} operation with fiber: #{fiber.object_id} for interleaving" if ENV['DEBUG']
-      # Important: Don't immediately resume the fiber here
-      # Let the caller decide when to start or coordinate fibers
+      if ENV["DEBUG"]
+        puts "Registered #{authority} operation with fiber: #{fiber.object_id} for interleaving"
+      end
+      # Process immediately when testing
+      fiber.resume if ScraperUtils::RandomizeUtils.sequential?
       fiber
     end
 
@@ -130,7 +131,11 @@ module ScraperUtils
       count = registry.size
       while (fiber = find_earliest_fiber)
         if fiber.alive?
-          authority = fiber.instance_variable_get(:@authority) rescue nil
+          authority = begin
+            fiber.instance_variable_get(:@authority)
+          rescue StandardError
+            nil
+          end
           @resume_count ||= 0
           @resume_count += 1
           values[authority] = fiber.resume
@@ -140,9 +145,12 @@ module ScraperUtils
         end
       end
 
-      percent_slept = (100.0 * @time_slept / @delay_requested).round(1) if @time_slept&.positive? && @delay_requested&.positive?
-      puts "FiberScheduler processed #{@resume_count} calls to delay for #{count} registrations, sleeping " \
-             "#{percent_slept}% (#{@time_slept&.round(1)}) of the #{@delay_requested&.round(1)} seconds requested."
+      if @time_slept&.positive? && @delay_requested&.positive?
+        percent_slept = (100.0 * @time_slept / @delay_requested).round(1)
+      end
+      puts "FiberScheduler processed #{@resume_count} calls to delay for #{count} registrations, " \
+           "sleeping #{percent_slept}% (#{@time_slept&.round(1)}) of the " \
+           "#{@delay_requested&.round(1)} seconds requested."
 
       exceptions
     end

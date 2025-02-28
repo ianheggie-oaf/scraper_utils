@@ -13,8 +13,8 @@ module ScraperUtils
     # @param start_time [Time] When this scraping attempt was started
     # @param attempt [Integer] 1 for first run, 2 for first retry, 3 for last retry (without proxy)
     # @param authorities [Array<Symbol>] List of authorities attempted to scrape
-    # @param exceptions [Hash > Exception] Any exception that occurred during scraping
-    # DataQualityMonitor.stats is checked for :saved and :unprocessed entries
+    # @param exceptions [Hash{Symbol => Exception}] Any exceptions that occurred during scraping
+    # `DataQualityMonitor.stats` is checked for :saved and :unprocessed entries
     # @return [void]
     def self.log_scraping_run(start_time, attempt, authorities, exceptions)
       raise ArgumentError, "Invalid start time" unless start_time.is_a?(Time)
@@ -75,11 +75,14 @@ module ScraperUtils
 
     # Report on the results
     # @param authorities [Array<Symbol>] List of authorities attempted to scrape
-    # @param exceptions [Hash > Exception] Any exception that occurred during scraping
-    # DataQualityMonitor.stats is checked for :saved and :unprocessed entries
+    # @param exceptions [Hash{Symbol => Exception}] Any exceptions that occurred during scraping
+    # `DataQualityMonitor.stats` is checked for :saved and :unprocessed entries
     # @return [void]
     def self.report_on_results(authorities, exceptions)
-      expect_bad = ENV["MORPH_EXPECT_BAD"]&.split(",")&.map(&:strip)&.map(&:to_sym) || []
+      if ENV["MORPH_EXPECT_BAD"]
+        expect_bad = ENV["MORPH_EXPECT_BAD"].split(",").map(&:strip).map(&:to_sym)
+      end
+      expect_bad ||= []
 
       puts "MORPH_EXPECT_BAD=#{ENV.fetch('MORPH_EXPECT_BAD', nil)}" if expect_bad.any?
 
@@ -87,27 +90,23 @@ module ScraperUtils
       puts "\nScraping Summary:"
       summary_format = "%-20s %6s %6s %s"
 
-      puts summary_format % %w[Authority OK Bad Exception]
-      puts summary_format % ['-' * 20, '-' * 6, '-' * 6, '-' * 50]
+      puts format(summary_format, 'Authority', 'OK', 'Bad', 'Exception')
+      puts format(summary_format, "-" * 20, "-" * 6, "-" * 6, "-" * 50)
 
       authorities.each do |authority|
         stats = ScraperUtils::DataQualityMonitor.stats&.fetch(authority, {}) || {}
-    
+
         ok_records = stats[:saved] || 0
         bad_records = stats[:unprocessed] || 0
-      
+
         expect_bad_prefix = expect_bad.include?(authority) ? "[EXPECT BAD] " : ""
         exception_msg = if exceptions[authority]
                           "#{exceptions[authority].class} - #{exceptions[authority].message}"
                         else
                           "-"
                         end
-        puts summary_format % [
-          authority.to_s, 
-          ok_records, 
-          bad_records,
-          "#{expect_bad_prefix}#{exception_msg}".slice(0, 70)
-        ]
+        puts format(summary_format, authority.to_s, ok_records, bad_records,
+                    "#{expect_bad_prefix}#{exception_msg}".slice(0, 70))
       end
       puts
 
@@ -120,7 +119,8 @@ module ScraperUtils
       end
 
       if unexpected_working.any?
-        errors << "WARNING: Remove #{unexpected_working.join(',')} from MORPH_EXPECT_BAD as it now works!"
+        errors <<
+          "WARNING: Remove #{unexpected_working.join(',')} from MORPH_EXPECT_BAD as it now works!"
       end
 
       # Check for authorities with unexpected errors

@@ -45,20 +45,28 @@ module ScraperUtils
     #
     # @param agent [Mechanize, nil] Mechanize agent to use for IP lookup or nil when clearing cache
     # @param force [Boolean] Force a new IP lookup, by clearing cache first
-    # @return [String] The public IP address
+    # @return [String, nil] The public IP address
     def self.public_ip(agent = nil, force: false)
       @public_ip = nil if force
-      @public_ip ||= agent&.get(PUBLIC_IP_URL)&.body&.strip if agent
+      @public_ip ||= begin
+        response = agent&.get(PUBLIC_IP_URL)
+        response&.body&.strip
+      end
+      @public_ip
     end
 
     # Retrieves and logs the headers that make it through the proxy
     #
     # @param agent [Mechanize, nil] Mechanize agent to use for IP lookup or nil when clearing cache
     # @param force [Boolean] Force a new IP lookup, by clearing cache first
-    # @return [String] The list of headers in json format
+    # @return [String, nil] The list of headers in json format
     def self.public_headers(agent = nil, force: false)
       @public_headers = nil if force
-      @public_headers ||= agent&.get(HEADERS_ECHO_URL)&.body&.strip if agent
+      @public_headers ||= begin
+        response = agent&.get(HEADERS_ECHO_URL)
+        response&.body&.strip
+      end
+      @public_headers
     end
   end
 end

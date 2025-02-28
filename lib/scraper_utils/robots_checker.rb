@@ -15,7 +15,9 @@ module ScraperUtils
     def initialize(user_agent)
       @user_agent = extract_user_agent(user_agent).downcase
       if ENV["DEBUG"]
-        ScraperUtils::FiberScheduler.log "Checking robots.txt for user agent prefix: #{@user_agent} (case insensitive)"
+        ScraperUtils::FiberScheduler.log(
+          "Checking robots.txt for user agent prefix: #{@user_agent} (case insensitive)"
+        )
       end
       @rules = {} # domain -> {rules: [], delay: int}
       @delay = nil # Delay from last robots.txt check
@@ -73,7 +75,11 @@ module ScraperUtils
         @rules[domain] = rules
         rules
       rescue StandardError => e
-        ScraperUtils::FiberScheduler.log "Warning: Failed to fetch robots.txt for #{domain}: #{e.message}" if ENV["DEBUG"]
+        if ENV["DEBUG"]
+          ScraperUtils::FiberScheduler.log(
+            "Warning: Failed to fetch robots.txt for #{domain}: #{e.message}"
+          )
+        end
         nil
       end
     end
@@ -141,4 +147,3 @@ module ScraperUtils
     end
   end
 end
-

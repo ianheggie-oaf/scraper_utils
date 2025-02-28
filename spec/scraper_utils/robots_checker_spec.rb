@@ -5,8 +5,9 @@ require "net/http"
 require "uri"
 
 RSpec.describe ScraperUtils::RobotsChecker do
-  let(:user_agent) { "Mozilla/5.0 (compatible; ScraperUtils/1.0.0 2025-02-23; +https://github.com/example/scraper)" }
   subject(:robots_checker) { described_class.new(user_agent) }
+
+  let(:user_agent) { "Mozilla/5.0 (compatible; ScraperUtils/1.0.0 2025-02-23; +https://github.com/example/scraper)" }
 
   after do
     ENV["DEBUG"] = nil

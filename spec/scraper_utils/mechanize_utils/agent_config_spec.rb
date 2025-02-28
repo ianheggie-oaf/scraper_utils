@@ -26,9 +26,11 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
   describe "#initialize" do
     context "with no options" do
       it "creates default configuration and displays it" do
-        expect { described_class.new }.to output(
-          "Configuring Mechanize agent with timeout=60, australian_proxy=false, compliant_mode, random_delay=3, max_load=20.0%\n"
-        ).to_stdout
+        expect { described_class.new }
+          .to output(
+            "Configuring Mechanize agent with timeout=60, australian_proxy=false, " \
+            "compliant_mode, random_delay=3, max_load=20.0%\n"
+          ).to_stdout
       end
     end
 
@@ -61,6 +63,7 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
 
     context "with all options enabled" do
       it "creates configuration with all options and displays them" do
+        message_part1 = "Configuring Mechanize agent with timeout=30, australian_proxy=true,"
         expect do
           described_class.new(
             australian_proxy: true,
@@ -70,7 +73,7 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
             max_load: 15.0,
             disable_ssl_certificate_check: true
           )
-        end.to output(/Configuring Mechanize agent with timeout=30, australian_proxy=true, compliant_mode, random_delay=5, max_load=15.0%, disable_ssl_certificate_check/m).to_stdout
+        end.to output(/#{Regexp.escape(message_part1)} {Regexp.escape(message_part2)}/m).to_stdout
       end
     end
 
@@ -79,7 +82,8 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
         expect do
           described_class.new
         end.to output(
-          "Configuring Mechanize agent with timeout=60, australian_proxy=false, compliant_mode, random_delay=3, max_load=20.0%\n"
+          "Configuring Mechanize agent with timeout=60, australian_proxy=false, " \
+          "compliant_mode, random_delay=3, max_load=20.0%\n"
         ).to_stdout
       end
 
@@ -88,7 +92,8 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
         expect do
           described_class.new(australian_proxy: true)
         end.to output(
-          "Configuring Mechanize agent with timeout=60, MORPH_AUSTRALIAN_PROXY not set, compliant_mode, random_delay=3, max_load=20.0%\n"
+          "Configuring Mechanize agent with timeout=60, MORPH_AUSTRALIAN_PROXY not set, " \
+          "compliant_mode, random_delay=3, max_load=20.0%\n"
         ).to_stdout
       end
     end
@@ -106,11 +111,11 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
     end
 
     context "with post_connect_hook" do
-      before { 
-        ENV["DEBUG"] = "1" 
+      before do
+        ENV["DEBUG"] = "1"
         stub_request(:get, "https://example.com/robots.txt")
           .to_return(status: 200, body: "User-agent: *\nAllow: /\n")
-      }
+      end
 
       it "logs connection details" do
         config = described_class.new(user_agent: "TestAgent")
@@ -247,8 +252,8 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
         stub_request(:get, ScraperUtils::MechanizeUtils::PUBLIC_IP_URL)
           .to_return(body: "1.2.3.4\n")
         stub_request(:get, ScraperUtils::MechanizeUtils::HEADERS_ECHO_URL)
-          .to_return(body: 'Not a valid JSON')
-        
+          .to_return(body: "Not a valid JSON")
+
         # Force clearing of cached public headers and IP
         ScraperUtils::MechanizeUtils.instance_variable_set(:@public_ip, nil)
         ScraperUtils::MechanizeUtils.instance_variable_set(:@public_headers, nil)
@@ -272,11 +277,12 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
       end
     end
   end
+
   describe "class methods" do
     describe ".configure" do
       it "allows configuration of default settings" do
         original_timeout = described_class.default_timeout
-        
+
         described_class.configure do |config|
           config.default_timeout = 90
         end
@@ -316,7 +322,7 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
   describe "random delay calculation" do
     it "calculates min and max random delays correctly" do
       config = described_class.new(random_delay: 5)
-      
+
       expect(config.min_random).to be_within(0.01).of(Math.sqrt(5 * 3.0 / 13.0))
       expect(config.max_random).to be_within(0.01).of(3 * config.min_random)
     end
@@ -326,7 +332,7 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
         config.default_random_delay = nil
       end
       config = described_class.new(random_delay: nil)
-      
+
       expect(config.min_random).to be_nil
       expect(config.max_random).to be_nil
     end
@@ -335,13 +341,13 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
   describe "user agent configuration" do
     context "with ENV['MORPH_USER_AGENT']" do
       before do
-        ENV['MORPH_USER_AGENT'] = "TestAgent-TODAY"
-        ENV['MORPH_TODAY'] = "2025-02-27"
+        ENV["MORPH_USER_AGENT"] = "TestAgent-TODAY"
+        ENV["MORPH_TODAY"] = "2025-02-27"
       end
 
       after do
-        ENV['MORPH_USER_AGENT'] = nil
-        ENV['MORPH_TODAY'] = nil
+        ENV["MORPH_USER_AGENT"] = nil
+        ENV["MORPH_TODAY"] = nil
       end
 
       it "replaces TODAY with current date" do
@@ -353,7 +359,7 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
     context "with default compliant mode" do
       it "generates a default user agent with ScraperUtils version" do
         config = described_class.new(compliant_mode: true)
-        expect(config.user_agent).to match(/ScraperUtils\/\d+\.\d+\.\d+/)
+        expect(config.user_agent).to match(%r{ScraperUtils/\d+\.\d+\.\d+})
         expect(config.user_agent).to include("+https://github.com/ianheggie-oaf/scraper_utils")
       end
     end

@@ -34,7 +34,6 @@ module ScraperUtils
                       ["council_reference"]
                     end
 
-
       ScraperWiki.save_sqlite(primary_key, record)
       ScraperUtils::DataQualityMonitor.log_saved_record(record)
     end

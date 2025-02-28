@@ -48,66 +48,68 @@ RSpec.describe ScraperUtils::LogUtils do
       }
 
       expect(ScraperWiki).to receive(:save_sqlite)
-                               .with(%w[authority_label run_at],
-                                     hash_including(common_params.merge(
-                                       "authority_label" => "good_council",
-                                       "records_saved" => 10,
-                                       "status" => "successful"
-                                     )),
-                                     ScraperUtils::LogUtils::LOG_TABLE)
-                               .once
+        .with(%w[authority_label run_at],
+              hash_including(common_params.merge(
+                               "authority_label" => "good_council",
+                               "records_saved" => 10,
+                               "status" => "successful"
+                             )),
+              ScraperUtils::LogUtils::LOG_TABLE)
+        .once
       expect(ScraperWiki).to receive(:save_sqlite)
-                               .with(%w[authority_label run_at],
-                                     hash_including(common_params.merge(
-                                       "authority_label" => "interrupted_council",
-                                       "error_class" => "StandardError",
-                                       "error_message" => "Part way through error",
-                                       "records_saved" => 5,
-                                       "status" => "interrupted"
-                                     )),
-                                     ScraperUtils::LogUtils::LOG_TABLE)
-                               .once
+        .with(%w[authority_label run_at],
+              hash_including(common_params.merge(
+                               "authority_label" => "interrupted_council",
+                               "error_class" => "StandardError",
+                               "error_message" => "Part way through error",
+                               "records_saved" => 5,
+                               "status" => "interrupted"
+                             )),
+              ScraperUtils::LogUtils::LOG_TABLE)
+        .once
       expect(ScraperWiki).to receive(:save_sqlite)
-                               .with(%w[authority_label run_at],
-                                     hash_including(common_params.merge(
-                                       "authority_label" => "broken_council",
-                                       "error_class" => "StandardError",
-                                       "error_message" => "It is BROKEN error",
-                                       "unprocessable_records" => 7
-                                     )),
-                                     ScraperUtils::LogUtils::LOG_TABLE)
-                               .once
+        .with(%w[authority_label run_at],
+              hash_including(common_params.merge(
+                               "authority_label" => "broken_council",
+                               "error_class" => "StandardError",
+                               "error_message" => "It is BROKEN error",
+                               "unprocessable_records" => 7
+                             )),
+              ScraperUtils::LogUtils::LOG_TABLE)
+        .once
       expect(ScraperWiki).to receive(:save_sqlite)
-                               .with(%w[authority_label run_at],
-                                     hash_including(common_params.merge(
-                                       "authority_label" => "empty_council"
-                                     )),
-                                     ScraperUtils::LogUtils::LOG_TABLE)
-                               .once
+        .with(%w[authority_label run_at],
+              hash_including(common_params.merge(
+                               "authority_label" => "empty_council"
+                             )),
+              ScraperUtils::LogUtils::LOG_TABLE)
+        .once
       expect(ScraperWiki).to receive(:save_sqlite)
-                               .with(["run_at"],
-                                     hash_including(
-                                       "attempt" => 1,
-                                       "duration" => 123.0,
-                                       "failed" => "broken_council,empty_council",
-                                       "failed_count" => 2,
-                                       "interrupted" => "interrupted_council",
-                                       "interrupted_count" => 1,
-                                       "run_at" => run_at.iso8601,
-                                       "successful" => "good_council",
-                                       "successful_count" => 1
-                                     ),
-                                     ScraperUtils::LogUtils::SUMMARY_TABLE)
-                               .once
+        .with(["run_at"],
+              hash_including(
+                "attempt" => 1,
+                "duration" => 123.0,
+                "failed" => "broken_council,empty_council",
+                "failed_count" => 2,
+                "interrupted" => "interrupted_council",
+                "interrupted_count" => 1,
+                "run_at" => run_at.iso8601,
+                "successful" => "good_council",
+                "successful_count" => 1
+              ),
+              ScraperUtils::LogUtils::SUMMARY_TABLE)
+        .once
 
-      described_class.log_scraping_run(run_at, 1, four_authorities, interrupted_and_broken_exceptions)
+      described_class.log_scraping_run(run_at, 1, four_authorities,
+                                       interrupted_and_broken_exceptions)
     end
 
     it "raises error for invalid start time" do
       deliberately_not_time = "not a time object"
       expect do
         # noinspection RubyMismatchedArgumentType
-        described_class.log_scraping_run(deliberately_not_time, 1, four_authorities, interrupted_and_broken_exceptions)
+        described_class.log_scraping_run(deliberately_not_time, 1, four_authorities,
+                                         interrupted_and_broken_exceptions)
       end.to raise_error(ArgumentError, "Invalid start time")
     end
 
@@ -127,59 +129,64 @@ RSpec.describe ScraperUtils::LogUtils do
                         "status" => "failed",
                         "unprocessable_records" => 0 }
       expect(ScraperWiki).to receive(:save_sqlite)
-                               .with(%w[authority_label run_at],
-                                     hash_including(common_params.merge(
-                                       "authority_label" => "good_council",
-                                       "records_saved" => 10,
-                                       "run_at" => run_at.iso8601,
-                                       "status" => "successful")),
-                                     ScraperUtils::LogUtils::LOG_TABLE)
-                               .once
+        .with(%w[authority_label run_at],
+              hash_including(common_params.merge(
+                               "authority_label" => "good_council",
+                               "records_saved" => 10,
+                               "run_at" => run_at.iso8601,
+                               "status" => "successful"
+                             )),
+              ScraperUtils::LogUtils::LOG_TABLE)
+        .once
       expect(ScraperWiki).to receive(:save_sqlite)
-                               .with(%w[authority_label run_at],
-                                     hash_including(common_params.merge(
-                                       "authority_label" => "interrupted_council",
-                                       "error_class" => "StandardError",
-                                       "error_message" => "Part way through error",
-                                       "records_saved" => 5,
-                                       "status" => "interrupted")),
-                                     ScraperUtils::LogUtils::LOG_TABLE)
-                               .once
+        .with(%w[authority_label run_at],
+              hash_including(common_params.merge(
+                               "authority_label" => "interrupted_council",
+                               "error_class" => "StandardError",
+                               "error_message" => "Part way through error",
+                               "records_saved" => 5,
+                               "status" => "interrupted"
+                             )),
+              ScraperUtils::LogUtils::LOG_TABLE)
+        .once
       expect(ScraperWiki).to receive(:save_sqlite)
-                               .with(%w[authority_label run_at],
-                                     hash_including(common_params.merge(
-                                       "authority_label" => "broken_council",
-                                       "error_class" => "StandardError",
-                                       "error_message" => "It is BROKEN error",
-                                       "unprocessable_records" => 7)),
-                                     ScraperUtils::LogUtils::LOG_TABLE)
-                               .once
+        .with(%w[authority_label run_at],
+              hash_including(common_params.merge(
+                               "authority_label" => "broken_council",
+                               "error_class" => "StandardError",
+                               "error_message" => "It is BROKEN error",
+                               "unprocessable_records" => 7
+                             )),
+              ScraperUtils::LogUtils::LOG_TABLE)
+        .once
       expect(ScraperWiki).to receive(:save_sqlite)
-                               .with(%w[authority_label run_at],
-                                     hash_including(common_params.merge(
-                                       "authority_label" => "empty_council")),
-                                     ScraperUtils::LogUtils::LOG_TABLE)
-                               .once
+        .with(%w[authority_label run_at],
+              hash_including(common_params.merge(
+                               "authority_label" => "empty_council"
+                             )),
+              ScraperUtils::LogUtils::LOG_TABLE)
+        .once
 
       expect(ScraperWiki)
         .to receive(:save_sqlite)
-              .with(["run_at"],
-                    hash_including(
-                      "duration" => 123.0,
-                      "attempt" => 1,
-                      "failed" => "broken_council,empty_council",
-                      "failed_count" => 2,
-                      "interrupted" => "interrupted_council",
-                      "interrupted_count" => 1,
-                      "public_ip" => nil,
-                      "run_at" => run_at.iso8601,
-                      "successful" => "good_council",
-                      "successful_count" => 1
-                    ),
-                    ScraperUtils::LogUtils::SUMMARY_TABLE)
-              .once
+        .with(["run_at"],
+              hash_including(
+                "duration" => 123.0,
+                "attempt" => 1,
+                "failed" => "broken_council,empty_council",
+                "failed_count" => 2,
+                "interrupted" => "interrupted_council",
+                "interrupted_count" => 1,
+                "public_ip" => nil,
+                "run_at" => run_at.iso8601,
+                "successful" => "good_council",
+                "successful_count" => 1
+              ),
+              ScraperUtils::LogUtils::SUMMARY_TABLE)
+        .once
 
-      described_class.log_scraping_run(run_at, 1, four_authorities, interrupted_and_broken_exceptions)
+      described_class.log_scraping_run(run_at, 1, four_authorities,
+                                       interrupted_and_broken_exceptions)
     end
 
     it "tracks summary of different authority statuses" do
@@ -190,7 +197,8 @@ RSpec.describe ScraperUtils::LogUtils do
         summary_record = record if table == ScraperUtils::LogUtils::SUMMARY_TABLE
       end
 
-      described_class.log_scraping_run(run_at, 1, four_authorities, interrupted_and_broken_exceptions)
+      described_class.log_scraping_run(run_at, 1, four_authorities,
+                                       interrupted_and_broken_exceptions)
 
       expect(summary_record).not_to be_nil
       expect(summary_record["successful"]).to include("good_council")
@@ -199,9 +207,10 @@ RSpec.describe ScraperUtils::LogUtils do
     end
 
     it "performs periodic record cleanup" do
-      expect(described_class).to receive(:cleanup_old_records).exactly(1).times
+      expect(described_class).to receive(:cleanup_old_records).once
 
-      described_class.log_scraping_run(run_at, 1, four_authorities, interrupted_and_broken_exceptions)
+      described_class.log_scraping_run(run_at, 1, four_authorities,
+                                       interrupted_and_broken_exceptions)
     end
 
     it "performs cleanup_old_records once per day" do
@@ -211,8 +220,8 @@ RSpec.describe ScraperUtils::LogUtils do
       ].each do |table|
         expect(ScraperWiki)
           .to receive(:sqliteexecute)
-                .with("DELETE FROM #{table} WHERE date(run_at) < date(?)", [be_a(String)])
-                .exactly(1).times
+          .with("DELETE FROM #{table} WHERE date(run_at) < date(?)", [be_a(String)])
+          .once
       end
       described_class.cleanup_old_records(force: true)
       described_class.cleanup_old_records
@@ -253,11 +262,12 @@ RSpec.describe ScraperUtils::LogUtils do
           end
         end
 
-        described_class.log_scraping_run(run_at, 1, [:complex_council], { complex_council: complex_error })
+        described_class.log_scraping_run(run_at, 1, [:complex_council],
+                                         { complex_council: complex_error })
 
         expect(log_record).not_to be_nil
 
-        trace = log_record["error_backtrace"] || ''
+        trace = log_record["error_backtrace"] || ""
         trace_lines = trace.split("\n")
 
         # Check total number of lines is limited to 6
@@ -356,22 +366,31 @@ RSpec.describe ScraperUtils::LogUtils do
       it "includes errors in summary" do
         ENV["MORPH_EXPECT_BAD"] = "broken_council"
 
-        expect { described_class.report_on_results(four_authorities, interrupted_and_broken_exceptions) }
+        expect do
+          described_class.report_on_results(four_authorities, interrupted_and_broken_exceptions)
+        end
           .to raise_error(RuntimeError, /ERROR: Unexpected errors/)
-                .and output(/interrupted_council {7}5 {6}0 StandardError - Part way through error/)
-                       .to_stdout
+          .and output(/interrupted_council {7}5 {6}0 StandardError - Part way through error/)
+          .to_stdout
 
-        expect { described_class.report_on_results(four_authorities, interrupted_and_broken_exceptions) }
+        expect do
+          described_class.report_on_results(four_authorities, interrupted_and_broken_exceptions)
+        end
           .to raise_error(RuntimeError, /ERROR: Unexpected errors/)
-                .and output(/broken_council {12}0 {6}7 \[EXPECT BAD\] StandardError - It is BROKEN error/)
-                       .to_stdout
+          .and output(/broken_council {12}0 {6}7 \[EXPECT BAD\] StandardError - It is BROKEN error/)
+          .to_stdout
       end
 
       it "raises an error with details about unexpected errors" do
         ENV["MORPH_EXPECT_BAD"] = "broken_council"
+        summary_has_error = "ERROR: Unexpected errors in: interrupted_council"
+        error_details = "interrupted_council: StandardError - Part way through error"
 
-        expect { described_class.report_on_results(four_authorities, interrupted_and_broken_exceptions) }
-          .to raise_error(RuntimeError, /ERROR: Unexpected errors in: interrupted_council.*interrupted_council: StandardError - Part way through error/m)
+        expect do
+          described_class.report_on_results(four_authorities, interrupted_and_broken_exceptions)
+        end
+          .to raise_error(RuntimeError,
+                          /#{Regexp.escape(summary_has_error)}.*#{Regexp.escape(error_details)}/m)
       end
     end
 

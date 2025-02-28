@@ -75,24 +75,21 @@ module ScraperUtils
       # Set defaults on load
       reset_defaults!
 
-
       # @return [String] User agent string
       attr_reader :user_agent
 
       # Give access for testing
 
-      attr_reader :max_load
-      attr_reader :min_random
-      attr_reader :max_random
+      attr_reader :max_load, :min_random, :max_random
 
-      # Creates configuration for a Mechanize agent with sensible defaults
-      # @param timeout [Integer, nil] Timeout for agent connections (default: 60 unless changed)
-      # @param compliant_mode [Boolean, nil] Comply with headers and robots.txt (default: true unless changed)
-      # @param random_delay [Integer, nil] Average random delay in seconds (default: 3 unless changed)
-      # @param max_load [Float, nil] Maximum server load percentage (nil = no response delay, default: 20%)
+      # Creates Mechanize agent configuration with sensible defaults overridable via configure
+      # @param timeout [Integer, nil] Timeout for agent connections (default: 60)
+      # @param compliant_mode [Boolean, nil] Comply with headers and robots.txt (default: true)
+      # @param random_delay [Integer, nil] Average random delay in seconds (default: 3)
+      # @param max_load [Float, nil] Maximum server load percentage (nil = no delay, default: 20%)
       #                              When compliant_mode is true, max_load is capped at 33%
-      # @param disable_ssl_certificate_check [Boolean, nil] Skip SSL verification (default: false unless changed)
-      # @param australian_proxy [Boolean, nil] Use proxy if available (default: false unless changed)
+      # @param disable_ssl_certificate_check [Boolean, nil] Skip SSL verification (default: false)
+      # @param australian_proxy [Boolean, nil] Use proxy if available (default: false)
       # @param user_agent [String, nil] Configure Mechanize user agent
       def initialize(timeout: nil,
                      compliant_mode: nil,
@@ -108,19 +105,25 @@ module ScraperUtils
         @max_load = [@max_load || 20.0, 33.0].min if @compliant_mode
         @user_agent = user_agent.nil? ? self.class.default_user_agent : user_agent
 
-        @disable_ssl_certificate_check = disable_ssl_certificate_check.nil? ?
-                                           self.class.default_disable_ssl_certificate_check :
+        @disable_ssl_certificate_check = if disable_ssl_certificate_check.nil?
+                                           self.class.default_disable_ssl_certificate_check
+                                         else
                                            disable_ssl_certificate_check
-        @australian_proxy = australian_proxy.nil? ? self.class.default_australian_proxy : australian_proxy
+                                         end
+        @australian_proxy = if australian_proxy.nil?
+                              self.class.default_australian_proxy
+                            else
+                              australian_proxy
+                            end
 
         # Validate proxy URL format if proxy will be used
         @australian_proxy &&= !ScraperUtils.australian_proxy.to_s.empty?
         if @australian_proxy
           uri = begin
-                  URI.parse(ScraperUtils.australian_proxy.to_s)
-                rescue URI::InvalidURIError => e
-                  raise URI::InvalidURIError, "Invalid proxy URL format: #{e.message}"
-                end
+            URI.parse(ScraperUtils.australian_proxy.to_s)
+          rescue URI::InvalidURIError => e
+            raise URI::InvalidURIError, "Invalid proxy URL format: #{e.message}"
+          end
           unless uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
             raise URI::InvalidURIError, "Proxy URL must start with http:// or https://"
           end
@@ -135,7 +138,7 @@ module ScraperUtils
         end
 
         today = Date.today.strftime("%Y-%m-%d")
-        @user_agent = ENV['MORPH_USER_AGENT']&.sub("TODAY", today)
+        @user_agent = ENV.fetch("MORPH_USER_AGENT", nil)&.sub("TODAY", today)
         if @compliant_mode
           version = ScraperUtils::VERSION
           @user_agent ||= "Mozilla/5.0 (compatible; ScraperUtils/#{version} #{today}; +https://github.com/ianheggie-oaf/scraper_utils)"
@@ -159,7 +162,8 @@ module ScraperUtils
         if @compliant_mode
           agent.user_agent = user_agent
           agent.request_headers ||= {}
-          agent.request_headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+          agent.request_headers["Accept"] =
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
           agent.request_headers["Upgrade-Insecure-Requests"] = "1"
         end
         if @australian_proxy
@@ -178,24 +182,28 @@ module ScraperUtils
       def display_options
         display_args = []
         display_args << "timeout=#{@timeout}" if @timeout
-        if @australian_proxy
-          display_args << "australian_proxy=#{@australian_proxy.inspect}"
-        elsif ScraperUtils.australian_proxy.to_s.empty?
-          display_args << "#{ScraperUtils::AUSTRALIAN_PROXY_ENV_VAR} not set"
-        else
-          display_args << "australian_proxy=#{@australian_proxy.inspect}"
-        end
+        display_args << if ScraperUtils.australian_proxy.to_s.empty? && !@australian_proxy
+                          "#{ScraperUtils::AUSTRALIAN_PROXY_ENV_VAR} not set"
+                        else
+                          "australian_proxy=#{@australian_proxy.inspect}"
+                        end
         display_args << "compliant_mode" if @compliant_mode
         display_args << "random_delay=#{@random_delay}" if @random_delay
         display_args << "max_load=#{@max_load}%" if @max_load
         display_args << "disable_ssl_certificate_check" if @disable_ssl_certificate_check
         display_args << "default args" if display_args.empty?
-        ScraperUtils::FiberScheduler.log "Configuring Mechanize agent with #{display_args.join(', ')}"
+        ScraperUtils::FiberScheduler.log(
+          "Configuring Mechanize agent with #{display_args.join(', ')}"
+        )
       end
 
       def pre_connect_hook(_agent, request)
         @connection_started_at = Time.now
-        ScraperUtils::FiberScheduler.log "Pre Connect request: #{request.inspect} at #{@connection_started_at}" if ENV["DEBUG"]
+        return unless ENV["DEBUG"]
+
+        ScraperUtils::FiberScheduler.log(
+          "Pre Connect request: #{request.inspect} at #{@connection_started_at}"
+        )
       end
 
       def post_connect_hook(_agent, uri, response, _body)
@@ -203,7 +211,10 @@ module ScraperUtils
 
         response_time = Time.now - @connection_started_at
         if ENV["DEBUG"]
-          ScraperUtils::FiberScheduler.log "Post Connect uri: #{uri.inspect}, response: #{response.inspect} after #{response_time} seconds"
+          ScraperUtils::FiberScheduler.log(
+            "Post Connect uri: #{uri.inspect}, response: #{response.inspect} " \
+            "after #{response_time} seconds"
+          )
         end
 
         if @robots_checker&.disallowed?(uri)
@@ -214,7 +225,7 @@ module ScraperUtils
         delays = {
           robot_txt: @robots_checker&.crawl_delay&.round(3),
           max_load: @adaptive_delay&.next_delay(uri, response_time)&.round(3),
-          random: (@min_random ? (rand(@min_random..@max_random) ** 2).round(3) : nil)
+          random: (@min_random ? (rand(@min_random..@max_random)**2).round(3) : nil)
         }
         @delay = delays.values.compact.max
         if @delay&.positive?
@@ -233,17 +244,17 @@ module ScraperUtils
           raise "Invalid public IP address returned by proxy check: #{my_ip.inspect}: #{e}"
         end
         ScraperUtils::FiberScheduler.log "Proxy is using IP address: #{my_ip.inspect}"
-        my_headers = MechanizeUtils::public_headers(agent)
+        my_headers = MechanizeUtils.public_headers(agent)
         begin
           # Check response is JSON just to be safe!
           headers = JSON.parse(my_headers)
           puts "Proxy is passing headers:"
-          puts JSON.pretty_generate(headers['headers'])
+          puts JSON.pretty_generate(headers["headers"])
         rescue JSON::ParserError => e
           puts "Couldn't parse public_headers: #{e}! Raw response:"
           puts my_headers.inspect
         end
-      rescue Net::OpenTimeout, Timeout::Error => e
+      rescue Timeout::Error => e # Includes Net::OpenTimeout
         raise "Proxy check timed out: #{e}"
       rescue Errno::ECONNREFUSED, Net::HTTP::Persistent::Error => e
         raise "Failed to connect to proxy: #{e}"

@@ -3,7 +3,7 @@
 require_relative "../spec_helper"
 
 RSpec.describe AdaptiveDelay do
-  before(:each) do
+  before do
     # Reset the delay cache before each test
     described_class.new.instance_variable_set(:@delays, {})
   end
