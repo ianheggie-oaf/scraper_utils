@@ -22,10 +22,12 @@ gem "sqlite3", platform && (platform == :heroku16 ? "~> 1.4.0" : "~> 1.6.3")
 gem "scraperwiki", git: "https://github.com/openaustralia/scraperwiki-ruby.git",
                    branch: "morph_defaults"
 
-# development and test test gems
+# development and test gems
 gem "rake", platform && (platform == :heroku16 ? "~> 12.3.3" : "~> 13.0")
 gem "rspec", platform && (platform == :heroku16 ? "~> 3.9.0" : "~> 3.12")
-gem "rubocop", platform && (platform == :heroku16 ? "~> 0.80.0" : "~> 1.57")
+gem "rubocop", platform && (platform == :heroku16 ? "~> 1.28.2" : "~> 1.73")
+gem "rubocop-rake", platform && (platform == :heroku16 ? "~> 0.6.0" : "~> 0.7")
+gem "rubocop-rspec", platform && (platform == :heroku16 ? "~> 2.10.0" : "~> 3.5")
 gem "simplecov", platform && (platform == :heroku16 ? "~> 0.18.0" : "~> 0.22.0")
 gem "simplecov-console"
 gem "webmock", platform && (platform == :heroku16 ? "~> 3.14.0" : "~> 3.19.0")
