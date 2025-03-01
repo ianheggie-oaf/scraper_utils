@@ -24,7 +24,10 @@ require "scraper_utils"
 require "rspec"
 
 # Require all library files
-Dir[File.expand_path("../lib/**/*.rb", __dir__ || "spec/")].each { |file| require file }
+Dir[File.expand_path("../lib/**/*.rb", __dir__ || "spec/")].each { |f| require f }
+
+# Load all support files
+Dir[File.expand_path('./support/**/*.rb', __dir__ || "spec/")].each { |f| require f }
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
