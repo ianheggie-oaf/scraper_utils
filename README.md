@@ -13,11 +13,12 @@ our scraper accessing your systems, here's what you should know:
 
 ### How to Control Our Behavior
 
-Our scraper utilities respect the standard server **robots.txt** control mechanisms (by default). To control our access:
+Our scraper utilities respect the standard server **robots.txt** control mechanisms (by default).
+To control our access:
 
 - Add a section for our user agent: `User-agent: ScraperUtils` (default)
-- Set a crawl delay: `Crawl-delay: 5`
-- If needed specify disallowed paths: `Disallow: /private/`
+- Set a crawl delay, eg: `Crawl-delay: 20`
+- If needed specify disallowed paths*: `Disallow: /private/`
 
 ### Built-in Politeness Features
 
@@ -33,6 +34,9 @@ Even without specific configuration, our scrapers will, by default:
 
 - **Add randomized delays**: We add random delays between requests to avoid creating regular traffic patterns that might
   impact server performance (enabled by default).
+
+- **Interleave requests**: We provide a utility so we do other work between each request,
+  which should further reduce the load on your server.
 
 Our goal is to access public planning information without negatively impacting your services.
 
@@ -111,15 +115,20 @@ The agent returned is configured using Mechanize hooks to implement the desired 
 ### Default Configuration
 
 By default, the Mechanize agent is configured with the following settings.
+As you can see, the defaults can be changed using env variables.
+
+Note - compliant mode forces max_load to be set to a value no greater than 33.
+PLEASE don't use our user agent string with a max_load higher than 33!
 
 ```ruby
 ScraperUtils::MechanizeUtils::AgentConfig.configure do |config|
-  config.default_timeout = 60
-  config.default_compliant_mode = true
-  config.default_random_delay = 3
-  config.default_max_load = 20 # percentage
-  config.default_disable_ssl_certificate_check = false
-  config.default_australian_proxy = false
+  config.default_timeout = ENV.fetch('MORPH_TIMEOUT', 60).to_i # 60
+  config.default_compliant_mode = ENV.fetch('MORPH_NOT_COMPLIANT', nil).to_s.empty? # true
+  config.default_random_delay = ENV.fetch('MORPH_RANDOM_DELAY', 15).to_i # 15
+  config.default_max_load = ENV.fetch('MORPH_MAX_LOAD', 20.0).to_f # 20
+  config.default_disable_ssl_certificate_check = !ENV.fetch('MORPH_DISABLE_SSL_CHECK', nil).to_s.empty? # false
+  config.default_australian_proxy = !ENV.fetch('MORPH_USE_PROXY', nil).to_s.empty? # false
+  config.default_user_agent = ENV.fetch('MORPH_USER_AGENT', nil) # Uses Mechanize user agent
 end
 ```
 

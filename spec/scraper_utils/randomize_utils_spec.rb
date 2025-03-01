@@ -9,7 +9,7 @@ RSpec.describe ScraperUtils::RandomizeUtils do
 
     context 'when in sequential mode' do
       before { described_class.sequential = true }
-      after { described_class.sequential = false }
+      after { described_class.instance_variable_set(:@sequential, nil) }
 
       it 'returns the original collection' do
         expect(described_class.randomize_order(input_collection)).to eq(input_collection)
@@ -35,24 +35,33 @@ RSpec.describe ScraperUtils::RandomizeUtils do
 
   describe '.sequential?' do
     context 'when MORPH_PROCESS_SEQUENTIALLY is set' do
-      before { ENV['MORPH_PROCESS_SEQUENTIALLY'] = 'true' }
+      before do
+        described_class.sequential = nil
+        ENV['MORPH_PROCESS_SEQUENTIALLY'] = 'true'
+      end
       after { ENV.delete('MORPH_PROCESS_SEQUENTIALLY') }
 
       it 'returns true' do
+        described_class.sequential = nil
         expect(described_class.sequential?).to be(true)
       end
     end
 
     context 'when MORPH_PROCESS_SEQUENTIALLY is not set' do
-      before { ENV.delete('MORPH_PROCESS_SEQUENTIALLY') }
+      before do
+        described_class.sequential = nil
+        ENV.delete('MORPH_PROCESS_SEQUENTIALLY')
+      end
 
       it 'returns false' do
+        described_class.sequential = nil
         expect(described_class.sequential?).to be(false)
       end
     end
   end
 
   describe '.sequential=' do
+    after { described_class.sequential = nil }
     it 'allows manually setting sequential mode' do
       described_class.sequential = true
       expect(described_class.sequential?).to be(true)

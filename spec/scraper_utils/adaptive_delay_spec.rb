@@ -2,7 +2,7 @@
 
 require_relative "../spec_helper"
 
-RSpec.describe AdaptiveDelay do
+RSpec.describe ScraperUtils::AdaptiveDelay do
   before do
     # Reset the delay cache before each test
     described_class.new.instance_variable_set(:@delays, {})
@@ -17,7 +17,7 @@ RSpec.describe AdaptiveDelay do
 
     it "uses default values when not provided" do
       delay_handler = described_class.new
-      expect(delay_handler.max_delay).to eq(AdaptiveDelay::DEFAULT_MAX_DELAY)
+      expect(delay_handler.max_delay).to eq(ScraperUtils::AdaptiveDelay::DEFAULT_MAX_DELAY)
     end
 
     it "accepts custom max_delay" do
@@ -143,9 +143,9 @@ RSpec.describe AdaptiveDelay do
     it "maintains separate caches for different domains" do
       # Different domains should have independent delays
       delay1 = delay_handler.next_delay(test_url1, 1.0)
-      expect(delay1).to eq(4.0)  # Should be 4 * 1.0 for test domain
+      expect(delay1).to eq(4.0) # Should be 4 * 1.0 for test domain
       delay2 = delay_handler.next_delay(test_other_url, 2.0)
-      expect(delay2).to eq(8.0)  # Should be 4 * 2.0 for new domain
+      expect(delay2).to eq(8.0) # Should be 4 * 2.0 for new domain
     end
 
     it "persists delays between calls" do

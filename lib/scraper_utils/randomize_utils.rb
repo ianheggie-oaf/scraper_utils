@@ -25,10 +25,10 @@ module ScraperUtils
 
     # Explicitly set sequential mode for testing
     #
-    # @param value [Boolean] true to enable sequential mode, false to disable
-    # @return [Boolean]
+    # @param value [Boolean, nil] true to enable sequential mode, false to disable, nil to clear cache
+    # @return [Boolean, nil]
     def self.sequential=(value)
-      @sequential = !!value
+      @sequential = value
     end
   end
 end

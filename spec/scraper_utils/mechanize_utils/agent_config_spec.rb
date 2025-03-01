@@ -29,7 +29,7 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
         expect { described_class.new }
           .to output(
             "Configuring Mechanize agent with timeout=60, australian_proxy=false, " \
-            "compliant_mode, random_delay=3, max_load=20.0%\n"
+            "compliant_mode, random_delay=15, max_load=20.0%\n"
           ).to_stdout
       end
     end
@@ -64,6 +64,8 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
     context "with all options enabled" do
       it "creates configuration with all options and displays them" do
         message_part1 = "Configuring Mechanize agent with timeout=30, australian_proxy=true,"
+        message_part2 = "compliant_mode, random_delay=5, max_load=15.0%, disable_ssl_certificate_check"
+
         expect do
           described_class.new(
             australian_proxy: true,
@@ -73,7 +75,7 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
             max_load: 15.0,
             disable_ssl_certificate_check: true
           )
-        end.to output(/#{Regexp.escape(message_part1)} {Regexp.escape(message_part2)}/m).to_stdout
+        end.to output(/#{Regexp.escape(message_part1)} #{Regexp.escape(message_part2)}/m).to_stdout
       end
     end
 
@@ -83,7 +85,7 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
           described_class.new
         end.to output(
           "Configuring Mechanize agent with timeout=60, australian_proxy=false, " \
-          "compliant_mode, random_delay=3, max_load=20.0%\n"
+          "compliant_mode, random_delay=15, max_load=20.0%\n"
         ).to_stdout
       end
 
@@ -93,7 +95,7 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
           described_class.new(australian_proxy: true)
         end.to output(
           "Configuring Mechanize agent with timeout=60, MORPH_AUSTRALIAN_PROXY not set, " \
-          "compliant_mode, random_delay=3, max_load=20.0%\n"
+          "compliant_mode, random_delay=15, max_load=20.0%\n"
         ).to_stdout
       end
     end
@@ -310,7 +312,7 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
 
         expect(described_class.default_timeout).to eq(60)
         expect(described_class.default_compliant_mode).to be(true)
-        expect(described_class.default_random_delay).to eq(3)
+        expect(described_class.default_random_delay).to eq(15)
         expect(described_class.default_max_load).to eq(20.0)
         expect(described_class.default_disable_ssl_certificate_check).to be(false)
         expect(described_class.default_australian_proxy).to be_nil

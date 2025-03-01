@@ -62,13 +62,13 @@ module ScraperUtils
         # Reset all configuration options to their default values
         # @return [void]
         def reset_defaults!
-          @default_timeout = 60
-          @default_compliant_mode = true
-          @default_random_delay = 3
-          @default_max_load = 20.0
-          @default_disable_ssl_certificate_check = false
-          @default_australian_proxy = nil
-          @default_user_agent = nil
+          @default_timeout = ENV.fetch('MORPH_TIMEOUT', 60).to_i # 60
+          @default_compliant_mode = ENV.fetch('MORPH_NOT_COMPLIANT', nil).to_s.empty? # true
+          @default_random_delay = ENV.fetch('MORPH_RANDOM_DELAY', 15).to_i # 15
+          @default_max_load = ENV.fetch('MORPH_MAX_LOAD', 20.0).to_f # 20
+          @default_disable_ssl_certificate_check = !ENV.fetch('MORPH_DISABLE_SSL_CHECK', nil).to_s.empty? # false
+          @default_australian_proxy = !ENV.fetch('MORPH_USE_PROXY', nil).to_s.empty? # false
+          @default_user_agent = ENV.fetch('MORPH_USER_AGENT', nil) # Uses Mechanize user agent
         end
       end
 
@@ -96,7 +96,7 @@ module ScraperUtils
                      random_delay: nil,
                      max_load: nil,
                      disable_ssl_certificate_check: nil,
-                     australian_proxy: false,
+                     australian_proxy: nil,
                      user_agent: nil)
         @timeout = timeout.nil? ? self.class.default_timeout : timeout
         @compliant_mode = compliant_mode.nil? ? self.class.default_compliant_mode : compliant_mode
