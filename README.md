@@ -27,16 +27,22 @@ Even without specific configuration, our scrapers will, by default:
 - **Identify themselves**: Our user agent clearly indicates who we are and provides a link to the project repository:
   `Mozilla/5.0 (compatible; ScraperUtils/0.2.0 2025-02-22; +https://github.com/ianheggie-oaf/scraper_utils)`
 
-- **Limit server load**: We introduce delays to avoid undue load on your server's by default based on your response
-  time.
-  The slower your server is running, the longer the delay we add between requests to help you.
-  In the default "compliant mode" this defaults to 20% and custom settings are capped at 33% maximum.
+- **Limit server load**: We slow down our requests so we should never be a significant load to your server, let alone
+  overload it.
+  The slower your server is running, the longer the delay we add between requests to help.
+  In the default "compliant mode" this defaults to a max load of 20% and is capped at 33%.
 
-- **Add randomized delays**: We add random delays between requests to avoid creating regular traffic patterns that might
-  impact server performance (enabled by default).
+- **Add randomized delays**: We add random delays between requests to further reduce our impact on servers, which should
+  bring us
+- down to the load of a single industrious person.
 
-- **Interleave requests**: We provide a utility so we do other work between each request,
-  which should further reduce the load on your server.
+Extra utilities provided for scrapers to further reduce your server load:
+
+- **Interleave requests**: This spreads out the requests to your server rather than focusing on one scraper at a time.
+
+- **Intelligent Date Range selection**: This reduces server load by over 60% by a smarter choice of date range searches,
+  checking the recent 4 days each day and reducing down to checking each 3 days by the end of the 33-day mark. This
+  replaces the simplistic check of the last 30 days each day.
 
 Our goal is to access public planning information without negatively impacting your services.
 
@@ -217,29 +223,68 @@ The `ScraperUtils::FiberScheduler` provides a lightweight utility that:
 * For the curious, it uses [ruby fibers](https://ruby-doc.org/core-2.5.8/Fiber.html) rather than threads as that is
   a simpler system and thus easier to get right, understand and debug!
 
-To enable change the scrape method to be like [example scrape method using fibers](docs/example_scrape_with_fibers.rb) 
+To enable change the scrape method to be like [example scrape method using fibers](docs/example_scrape_with_fibers.rb)
 
 And use `ScraperUtils::FiberScheduler.log` instead of `puts` when logging within the authority processing code.
 This will prefix the output lines with the authority name, which is needed since the system will interleave the work and
 thus the output.
 
-This uses `ScraperUtils::RandomizeUtils` as described below. Remember to add the recommended line to `spec/spec_heper.rb`.
+This uses `ScraperUtils::RandomizeUtils` as described below. Remember to add the recommended line to
+`spec/spec_heper.rb`.
+
+Intelligent Date Range Selection
+--------------------------------                                                                                                                                                                                   
+
+To further reduce server load and speed up scrapers, we provide an intelligent date range selection mechanism
+that can reduce server requests by 60% without significantly impacting delay in picking up changes.
+
+The `ScraperUtils::DateRangeUtils#calculate_date_ranges` method provides a smart approach to searching historical
+records:
+
+- Always checks the most recent 4 days daily (configurable)
+- Progressively reduces search frequency for older records
+- Uses a Fibonacci-like progression to create natural, efficient search intervals
+- Configurable `max_period` (default is 3 days)
+- merges adjacent search ranges and handles the changeover in search frequency by extending some searches
+
+Example usage in your scraper:
+
+ ```ruby                                                                                                                                                                                                            
+date_ranges = ScraperUtils::DateRangeUtils.new.calculate_date_ranges
+date_ranges.each do |from_date, to_date, _debugging_comment|
+  # Adjust your normal search code to use for this date range                                                                                                                                                                             
+  your_search_records(from_date: from_date, to_date: to_date) do |record|
+    # process as normal
+  end
+end
+```
+
+Typical server load reductions:
+
+* Max period 2 days : ~42% of the 33 days selected
+* Max period 3 days : ~37% of the 33 days selected (default)
+* Max period 5 days : ~35% (or ~31% when days = 45)
+
+See the class documentation for customizing defaults and passing options.
 
 Randomizing Requests
 --------------------
- 
-Pass a `Collection` or `Array` to `ScraperUtils::RandomizeUtils.randomize_order` to randomize it in production, but receive in as is when testing.
+
+Pass a `Collection` or `Array` to `ScraperUtils::RandomizeUtils.randomize_order` to randomize it in production, but
+receive in as is when testing.
 
 Use this with the list of records scraped from an index to randomise the requests to be less Bot like.
 
-### Spec setup
+    ### Spec setup
 
-You should enforce sequential mode when testing by adding the following code to `spec/spec_helper.rb`:
+    You should enforce sequential mode when testing by adding the following code to `spec/spec_helper.rb` :
+
 ```
 ScraperUtils::RandomizeUtils.sequential = true
 ```
 
-Note: 
+Note:
+
 * You can also force sequential mode by setting the env variable `MORPH_PROCESS_SEQUENTIALLY` to a value, eg: `1`
 * testing using VCR requires sequential mode
 

@@ -21,7 +21,7 @@ module ScraperUtils
       #   AgentConfig.configure do |config|
       #     config.default_everytime = 3
       #     config.default_days = 35
-      #     config.default_max_period = 3
+      #     config.default_max_period = 5
       #   end
       # @return [void]
       def configure
@@ -33,7 +33,7 @@ module ScraperUtils
       def reset_defaults!
         @default_days = ENV.fetch('MORPH_DAYS', 33).to_i # 33
         @default_everytime = ENV.fetch('MORPH_EVERYTIME', 4).to_i # 4
-        @default_max_period = ENV.fetch('MORPH_MAX_PERIOD', 7).to_i # 7
+        @default_max_period = ENV.fetch('MORPH_MAX_PERIOD', 3).to_i # 3
       end
     end
 
