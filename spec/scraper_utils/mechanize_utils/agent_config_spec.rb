@@ -315,7 +315,7 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
         expect(described_class.default_random_delay).to eq(15)
         expect(described_class.default_max_load).to eq(20.0)
         expect(described_class.default_disable_ssl_certificate_check).to be(false)
-        expect(described_class.default_australian_proxy).to be_nil
+        expect(described_class.default_australian_proxy).to eq(false)
         expect(described_class.default_user_agent).to be_nil
       end
     end

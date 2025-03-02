@@ -3,14 +3,18 @@
 require 'date'
 require 'terminal-table'
 
+require_relative 'date_range_visualizer'
+
 module DateRangeSimulator
   # Runs a simulation on the date range algorithm
+  # @param utils [DateRangeUtils] The DateRangeUtils instance to use
   # @param days [Integer] Number of days to cover
   # @param everytime [Integer] Days to always include
   # @param max_period [Integer] Maximum period between checks
   # @param simulation_days [Integer, nil] Length of simulation in days, default: days * 2
+  # @param visualize [Boolean] Create visualization even if no error occurs
   # @return [Hash] Statistics from the simulation
-  def self.run_simulation(utils, days:, everytime:, max_period:)
+  def self.run_simulation(utils, days:, everytime:, max_period:, simulation_days: nil, visualize: false)
     # Track which days are checked
     checked_days = {}
     days_checked_per_day = []
@@ -19,13 +23,18 @@ module DateRangeSimulator
 
     puts "DEBUG Simulating days: #{days} [#{current_start_date} .. #{today}], everytime: #{everytime}, max_period: #{max_period} (starting #{days} earlier)"
 
-    simulation_days = days * 2
+    simulation_days ||= days * 2
     start_simulation_date = today + 1 - simulation_days
     # This is a hash of date to date last checked
     last_checked = {}
 
+    # For visualization purpose, store search ranges by date
+    simulation_history = {}
+
     # Run simulation for specified days
     max_streak = 0
+    error = nil
+
     simulation_days.times do |i|
       simulation_date = today - simulation_days + i + 1
 
@@ -36,42 +45,90 @@ module DateRangeSimulator
         max_period: max_period,
         today: simulation_date
       )
-      # puts "DEBUG #{simulation_date - days + 1} .. #{simulation_date} searches: #{ranges.map { |a, b, c| "[#{a} .. #{b} = #{(b - a).to_i + 1}; #{c}]" }.join(', ')}"
+
+      # Store search ranges for this date
+      simulation_history[simulation_date] = []
+
+      # Log the ranges
+      puts "DEBUG #{simulation_date - days + 1} .. #{simulation_date} searches: #{ranges.map { |a, b, c| "[#{a} .. #{b} = #{(b - a).to_i + 1}; #{c}]" }.join(', ')}"
 
       # Track which days were checked
       days_checked_today = 0
 
       ranges.each do |range|
-        start_date, end_date = range
-        (start_date..end_date).each do |date|
-          checked_days[date] ||= 0
-          checked_days[date] += 1
-          if last_checked[date]
-            streak = (simulation_date - last_checked[date]).to_i
-            if streak > max_streak && date >= current_start_date
-              if streak > max_period
-                raise "DEBUG: streak of #{streak} found on #{simulation_date}: #{date} was last checked #{last_checked[date]}"
-              end
-              max_streak = streak
-            end
-          end
-          last_checked[date] = simulation_date
-          days_checked_today += 1 if simulation_date >= start_simulation_date
+        start_date, end_date, comment = range
+
+        # Store search range info for visualization
+        simulation_history[simulation_date] << [start_date, end_date, comment]
+
+        (start_date..end_date).each do |search_date|
+          next if search_date < start_simulation_date
+
+          checked_days[search_date] ||= 0
+          checked_days[search_date] += 1
+          last_checked[search_date] = simulation_date
+          days_checked_today += 1 if search_date > simulation_date - days
         end
       end
-      puts "DEBUG: #{days_checked_today} days checked #{simulation_date} #{ranges.map { |a, b, c| "[#{a.strftime('%m-%d')}..#{b.strftime('%m-%d')}=#{(b - a).to_i + 1} #{c}]" }.join('  ')}"
-      days_checked_per_day << days_checked_today
-    end
-    # check current range
-    (current_start_date - 1..today).each do |date|
-      raise "#{date} has never been checked!" unless last_checked[date]
-
-      streak = (today - last_checked[date]).to_i
-      if streak > max_streak
-        if streak > max_period
-          raise "DEBUG: streak of #{streak} found today (#{today}): #{date} was last checked #{last_checked[date]}"
+      days_checked_per_day << days_checked_today if simulation_date >= current_start_date
+      # Check for long streaks
+      (simulation_date..today).each do |search_date|
+        if last_checked[search_date]
+          streak = (simulation_date - last_checked[search_date]).to_i
+          if streak > max_streak && search_date >= current_start_date
+            max_streak = streak
+            if streak > max_period
+              error_msg = "Streak of #{streak} found on #{simulation_date}: #{search_date} was last checked #{last_checked[search_date]}"
+              puts "ERROR: #{error_msg}"
+              error = {
+                streak: streak,
+                found_on: simulation_date,
+                search_date: search_date,
+                last_checked: last_checked[search_date],
+                message: error_msg
+              }
+              break
+            end
+          end
         end
-        max_streak = streak
+        break if error
+      end
+      break if error
+    end
+
+    # Only do final check if we didn't find an error yet
+    unless error
+      # Check if all dates are covered
+      (current_start_date..today).each do |search_date|
+        unless last_checked[search_date]
+          error_msg = "#{search_date} has never been checked!"
+          puts "ERROR: #{error_msg}"
+          error = {
+            streak: today + 1 - start_simulation_date,
+            found_on: today,
+            search_date: search_date,
+            last_checked: start_simulation_date - 1,
+            message: error_msg
+          }
+          break
+        end
+
+        streak = (today - last_checked[search_date]).to_i
+        if streak > max_streak
+          if streak > max_period
+            error_msg = "Streak of #{streak} found today (#{today}): #{search_date} was last checked #{last_checked[search_date]}"
+            puts "ERROR: #{error_msg}"
+            error = {
+              streak: streak,
+              found_on: today,
+              search_date: search_date,
+              last_checked: last_checked[search_date],
+              message: error_msg
+            }
+            break
+          end
+          max_streak = streak
+        end
       end
     end
 
@@ -79,11 +136,11 @@ module DateRangeSimulator
     unchecked_dates = []
     checked_dates = []
 
-    (current_start_date..today).each do |date|
-      if checked_days[date].nil?
-        unchecked_dates << date
+    (current_start_date..today).each do |search_date|
+      if checked_days[search_date].nil?
+        unchecked_dates << search_date
       else
-        checked_dates << date
+        checked_dates << search_date
       end
     end
 
@@ -98,9 +155,10 @@ module DateRangeSimulator
       coverage_percentage: coverage,
       unchecked_days: unchecked_dates.count,
       max_unchecked_streak: max_streak,
-      avg_checked_per_day: (days_checked_per_day.sum * 100.0 / (simulation_days * simulation_days)).round(1),
-      min_checked_per_day: (days_checked_per_day.min * 100.0 / simulation_days).round(1),
-      max_checked_per_day: (days_checked_per_day.max * 100.0 / simulation_days).round(1)
+      avg_checked_per_day: (days_checked_per_day.sum * 100.0 / (days * days)).round(1),
+      min_checked_per_day: (days_checked_per_day.min * 100.0 / days).round(1),
+      max_checked_per_day: (days_checked_per_day.max * 100.0 / days).round(1),
+      error: error
     }
 
     # Generate an ASCII table
@@ -119,6 +177,37 @@ module DateRangeSimulator
       t.add_row ["Max Checked Per Day%", stats[:max_checked_per_day], ""]
     end
 
-    stats.merge({ table: table })
+    stats_with_table = stats.merge({ table: table })
+
+    # Create visualization if there was an error or explicitly requested
+    if error || visualize
+      create_visualization(simulation_history, error, {
+        start_date: start_simulation_date, # Show 20 days before the simulation start
+        end_date: today + 1, # Show 2 days after the simulation end
+        max_period: max_period,
+        days: days,
+        everytime: everytime
+      })
+    end
+
+    stats_with_table
+  end
+
+  # Create visualization of simulation results
+  # @param simulation_history [Hash] History of simulation runs Array of [from_date, to_date, comment]
+  # @param error [Hash, nil] Error information if any
+  # @param config [Hash] Configuration for visualization
+  # @return [String] Path to the generated HTML file
+  def self.create_visualization(simulation_history, error, config)
+
+    # Create the visualizer
+    visualizer = DateRangeVisualizer.new(
+      simulation_history,
+      error,
+      config
+    )
+
+    # Generate the visualization
+    visualizer.visualize
   end
 end

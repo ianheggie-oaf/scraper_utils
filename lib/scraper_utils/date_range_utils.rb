@@ -2,9 +2,11 @@
 
 module ScraperUtils
   class DateRangeUtils
+    MERGE_ADJACENT_RANGES = true
+    PERIODS = [2, 3, 5, 8].freeze
 
     class << self
-      # @return [Boolean] Default number of days to cover
+      # @return [Integer] Default number of days to cover
       attr_accessor :default_days
 
       # @return [Integer] Default days to always include in ranges
@@ -29,8 +31,8 @@ module ScraperUtils
       # Reset all configuration options to their default values
       # @return [void]
       def reset_defaults!
-        @default_days = ENV.fetch('MORPH_DAYS', 30).to_i # 30
-        @default_everytime = ENV.fetch('MORPH_EVERYTIME', 2).to_i # 2
+        @default_days = ENV.fetch('MORPH_DAYS', 33).to_i # 33
+        @default_everytime = ENV.fetch('MORPH_EVERYTIME', 4).to_i # 4
         @default_max_period = ENV.fetch('MORPH_MAX_PERIOD', 7).to_i # 7
       end
     end
@@ -67,46 +69,52 @@ module ScraperUtils
     def _calculate_date_ranges(days, everytime, max_period, today)
       @max_period_used = 1
       to_date = today
+      valid_periods = PERIODS.select { |p| p <= max_period }
       if !max_period.positive? || !days.positive?
         return []
-      elsif max_period == 1 || everytime >= days
+      elsif valid_periods.empty? || everytime >= days
         # cover everything everytime
         return [[today + 1 - days, today, "everything"]]
       end
 
+      max_period = valid_periods.max
+
       run_number = today.to_date.jd
       ranges = []
       if everytime.positive?
-        # add one day to cover running yesterday before work hours and then today after work hours
-        ranges << [to_date - everytime, to_date, "everytime"]
+        ranges << [to_date + 1 - everytime, to_date, "everytime"]
         days -= everytime
         to_date -= everytime
       end
 
-      last_fibonacci = period = 1
+      periods = valid_periods.dup
       loop do
-        last_fibonacci, period = [period, last_fibonacci + period]
-        break if period > max_period || !days.positive?
+        period = periods.shift
+        break if period.nil? || period >= max_period || !days.positive?
 
-        period_start_date = to_date
         # puts "DEBUG: #{period} day periods started #{(today - to_date).to_i} days in."
-        @max_period_used = period
         period.times do |index|
           break unless days.positive?
 
           this_period = [days, period].min
+          break if this_period <= 0
+
+          earliest_from = to_date - days
           # we are working from the oldest back towards today
           if run_number % period == index
             from = to_date - index - (this_period - 1)
-            extending = index == 0  ? 'E' : nil
-            to = [today, to_date - index + (extending ? last_fibonacci : 0)].min
-            puts "DEBUG    Note: To date extended by #{last_fibonacci} days from #{this_period} days long  ##{index}" if extending
-            if ranges.any? && ranges.last[0] <= to + 1
+            from = earliest_from if from < earliest_from
+            to = [today, to_date - index].min
+            break if from > to
+
+            @max_period_used = [this_period, @max_period_used].max
+            if ranges.any? && ranges.last[0] <= to + 1 && MERGE_ADJACENT_RANGES
               # extend adjacent range
               ranges.last[0] = [from, ranges.last[0]].min
-              ranges.last[2] = "#{period}#{extending}\##{index},#{ranges.last[2]}"
+              ranges.last[2] = "#{period}\##{index},#{ranges.last[2]}"
             else
-              ranges << [from, to, "#{period}#{extending}\##{index}"]
+              to = ranges.last[0] - 1 if ranges.any? && to >= ranges.last[0]
+              ranges << [from, to, "#{period}\##{index}"]
             end
           end
           days -= this_period
@@ -116,24 +124,26 @@ module ScraperUtils
       # remainder of range at max_period, whatever that is
       # puts "DEBUG: #{max_period} day periods started #{(today - to_date).to_i} days in." if days.positive?
       index = -1
-      last_fibonacci = @max_period_used
-      last_fibonacci = 0 if last_fibonacci == max_period
       while days.positive?
         index += 1
-        index = 0 if index >= max_period
         this_period = [days, max_period].min
-        if run_number % max_period == index
-          @max_period_used = [this_period, @max_period_used].max
+        break if this_period <= 0
+
+        earliest_from = to_date - days
+        if (run_number % max_period) == (index % max_period)
           from = to_date - index - (this_period - 1)
-          extending = (index == 0 && last_fibonacci.positive?) ? 'E' : nil
-          to = to_date - index + (extending ? last_fibonacci : 0)
-          puts "DEBUG    Note: To date extended by #{last_fibonacci} days from #{this_period} days long ##{index}" if extending
-          if ranges.any? && ranges.last[0] <= to + 1
+          from = earliest_from if from < earliest_from
+          to = to_date - index
+          break if from > to
+
+          @max_period_used = [this_period, @max_period_used].max
+          if ranges.any? && ranges.last[0] <= to + 1 && MERGE_ADJACENT_RANGES
             # extend adjacent range
             ranges.last[0] = [from, ranges.last[0]].min
-            ranges.last[2] = "#{this_period}#{extending}\##{index},#{ranges.last[2]}"
+            ranges.last[2] = "#{this_period}\##{index},#{ranges.last[2]}"
           else
-            ranges << [from, to, "#{this_period}#{extending}\##{index}"]
+            to = ranges.last[0] - 1 if ranges.any? && to >= ranges.last[0]
+            ranges << [from, to, "#{this_period}\##{index}"]
           end
         end
         days -= this_period
