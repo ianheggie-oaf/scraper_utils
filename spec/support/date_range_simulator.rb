@@ -15,11 +15,12 @@ module DateRangeSimulator
     checked_days = {}
     days_checked_per_day = []
     today = Date.today
-    current_start_date =  today - days + 1
+    current_start_date = today - days + 1
 
     puts "DEBUG Simulating days: #{days} [#{current_start_date} .. #{today}], everytime: #{everytime}, max_period: #{max_period} (starting #{days} earlier)"
 
     simulation_days = days * 2
+    start_simulation_date = today + 1 - simulation_days
     # This is a hash of date to date last checked
     last_checked = {}
 
@@ -35,7 +36,7 @@ module DateRangeSimulator
         max_period: max_period,
         today: simulation_date
       )
-      puts "DEBUG #{simulation_date - days + 1} .. #{simulation_date} searches: #{ranges.map{|a,b, c| "[#{a} .. #{b} = #{(b-a).to_i + 1}; #{c}]"}.join(', ')}"
+      # puts "DEBUG #{simulation_date - days + 1} .. #{simulation_date} searches: #{ranges.map { |a, b, c| "[#{a} .. #{b} = #{(b - a).to_i + 1}; #{c}]" }.join(', ')}"
 
       # Track which days were checked
       days_checked_today = 0
@@ -55,13 +56,14 @@ module DateRangeSimulator
             end
           end
           last_checked[date] = simulation_date
-          days_checked_today += 1
+          days_checked_today += 1 if simulation_date >= start_simulation_date
         end
       end
+      puts "DEBUG: #{days_checked_today} days checked #{simulation_date} #{ranges.map { |a, b, c| "[#{a.strftime('%m-%d')}..#{b.strftime('%m-%d')}=#{(b - a).to_i + 1} #{c}]" }.join('  ')}"
       days_checked_per_day << days_checked_today
     end
     # check current range
-    (current_start_date - 1 .. today).each do |date|
+    (current_start_date - 1..today).each do |date|
       raise "#{date} has never been checked!" unless last_checked[date]
 
       streak = (today - last_checked[date]).to_i
@@ -75,15 +77,18 @@ module DateRangeSimulator
 
     # Calculate statistics
     unchecked_dates = []
+    checked_dates = []
 
     (current_start_date..today).each do |date|
       if checked_days[date].nil?
         unchecked_dates << date
+      else
+        checked_dates << date
       end
     end
 
     # Build a stats table
-    coverage = ((checked_days.keys.count.to_f / days) * 100).round(1)
+    coverage = ((checked_dates.size.to_f / days) * 100).round(1)
 
     # Create result hash
     stats = {
@@ -93,14 +98,14 @@ module DateRangeSimulator
       coverage_percentage: coverage,
       unchecked_days: unchecked_dates.count,
       max_unchecked_streak: max_streak,
-      avg_checked_per_day: (days_checked_per_day.sum.to_f / days_checked_per_day.size).round(1),
-      min_checked_per_day: days_checked_per_day.min,
-      max_checked_per_day: days_checked_per_day.max
+      avg_checked_per_day: (days_checked_per_day.sum * 100.0 / (simulation_days * simulation_days)).round(1),
+      min_checked_per_day: (days_checked_per_day.min * 100.0 / simulation_days).round(1),
+      max_checked_per_day: (days_checked_per_day.max * 100.0 / simulation_days).round(1)
     }
 
     # Generate an ASCII table
     table = Terminal::Table.new do |t|
-      t.title = "Date Range Simulation Results"
+      t.title = "Date Range Simulation Results: max #{max_period} days"
       t.headings = %w[Metric Value Comments]
 
       t.add_row ["Days", stats[:days], ""]
@@ -109,11 +114,11 @@ module DateRangeSimulator
       t.add_row ["Coverage", "#{stats[:coverage_percentage]}%", ""]
       t.add_row ["Unchecked Days", stats[:unchecked_days], "Should be zero, was: #{unchecked_dates.inspect}"]
       t.add_row ["Max Unchecked Streak", stats[:max_unchecked_streak], "Should be <= #{max_period}"]
-      t.add_row ["Avg Checked Per Day", stats[:avg_checked_per_day], "Should be approx #{(days / max_period).round(1)}"]
-      t.add_row ["Min Checked Per Day", stats[:min_checked_per_day], ""]
-      t.add_row ["Max Checked Per Day", stats[:max_checked_per_day], ""]
+      t.add_row ["Avg Checked Per Day%", stats[:avg_checked_per_day], "Should be approx #{(100 / max_period).round(1)}"]
+      t.add_row ["Min Checked Per Day%", stats[:min_checked_per_day], ""]
+      t.add_row ["Max Checked Per Day%", stats[:max_checked_per_day], ""]
     end
 
-    stats.merge({table: table})
+    stats.merge({ table: table })
   end
 end

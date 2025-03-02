@@ -82,7 +82,55 @@ RSpec.describe ScraperUtils::DateRangeUtils do
     end
 
     context "simulation testing" do
-      it "provides good coverage with realistic parameters", :aggregate_failures do
+      it "provides good coverage with realistic parameters for max 2 days", :aggregate_failures do
+        # Run a 60-day simulation to ensure all days get checked
+        stats = DateRangeSimulator.run_simulation(
+          utils,
+          days: 30,
+          everytime: 2,
+          max_period: 2
+        )
+
+        # Output the stats table
+        puts stats[:table]
+
+        # Basic verification of the algorithm properties
+        expect(utils.max_period_used).to eq(2)
+        expect(stats[:max_unchecked_streak]).to be <= 2
+        expect(stats[:coverage_percentage]).to eq(100)
+
+        # Verify load distribution
+        avg = (100.0/2).round(1)
+        expect(stats[:avg_checked_per_day]).to be_between(avg - 1, avg + 1)
+        expect(stats[:min_checked_per_day]).to be_between(avg - 5, avg)
+        expect(stats[:max_checked_per_day]).to be_between(avg, avg + 5)
+      end
+
+      it "provides good coverage with realistic parameters for max 3 days", :aggregate_failures do
+        # Run a 60-day simulation to ensure all days get checked
+        stats = DateRangeSimulator.run_simulation(
+          utils,
+          days: 30,
+          everytime: 2,
+          max_period: 3
+        )
+
+        # Output the stats table
+        puts stats[:table]
+
+        # Basic verification of the algorithm properties
+        expect(utils.max_period_used).to eq(3)
+        expect(stats[:max_unchecked_streak]).to be <= 3
+        expect(stats[:coverage_percentage]).to eq(100)
+
+        # Verify load distribution
+        avg = (100.0/3).round(1) # + 12
+        expect(stats[:avg_checked_per_day]).to be_between(avg - 1, avg + 1)
+        expect(stats[:min_checked_per_day]).to be_between(avg - 10, avg)
+        expect(stats[:max_checked_per_day]).to be_between(avg, avg + 10)
+      end
+
+      it "provides good coverage with realistic parameters for 5 days", :aggregate_failures do
         # Run a 60-day simulation to ensure all days get checked
         stats = DateRangeSimulator.run_simulation(
           utils,
@@ -95,14 +143,64 @@ RSpec.describe ScraperUtils::DateRangeUtils do
         puts stats[:table]
 
         # Basic verification of the algorithm properties
+        expect(utils.max_period_used).to eq(5)
         expect(stats[:max_unchecked_streak]).to be <= 5
         expect(stats[:coverage_percentage]).to eq(100)
 
         # Verify load distribution
-        expect(stats[:avg_checked_per_day]).to be_between(5, 15)
-        expect(stats[:max_checked_per_day]).to be <= 30
+        avg = (100.0/5).round(1) # + 1
+        expect(stats[:avg_checked_per_day]).to be_between(avg - 1, avg + 1)
+        expect(stats[:min_checked_per_day]).to be_between(avg - 10, avg)
+        expect(stats[:max_checked_per_day]).to be_between(avg, avg + 10)
+      end
+
+      it "provides good coverage with realistic parameters for 7 days", :aggregate_failures do
+        # Run a 60-day simulation to ensure all days get checked
+        stats = DateRangeSimulator.run_simulation(
+          utils,
+          days: 2 + 2*2 + 3*3 + 5*5 + 7*7,
+          everytime: 2,
+          max_period: 7
+        )
+
+        # Output the stats table
+        puts stats[:table]
+
+        # Basic verification of the algorithm properties
+        expect(utils.max_period_used).to eq(7)
+        expect(stats[:max_unchecked_streak]).to be <= 7
+        expect(stats[:coverage_percentage]).to eq(100)
+
+        # Verify load distribution
+        avg = (100.0/7).round(1)
+        expect(stats[:avg_checked_per_day]).to be_between(avg - 1, avg + 1)
+        expect(stats[:min_checked_per_day]).to be_between(avg - 10, avg)
+        expect(stats[:max_checked_per_day]).to be_between(avg, avg + 10)
+      end
+
+      it "provides good coverage with realistic parameters for 10 days", :aggregate_failures do
+        # Run a 60-day simulation to ensure all days get checked
+        stats = DateRangeSimulator.run_simulation(
+          utils,
+          days: 2 + 2*2 + 3*3 + 5*5 + 7*7 + 10*10,
+          everytime: 2,
+          max_period: 10
+        )
+
+        # Output the stats table
+        puts stats[:table]
+
+        # Basic verification of the algorithm properties
+        expect(utils.max_period_used).to eq(10)
+        expect(stats[:max_unchecked_streak]).to be <= 10
+        expect(stats[:coverage_percentage]).to eq(100)
+
+        # Verify load distribution
+        avg = (100.0/10).round(1)
+        expect(stats[:avg_checked_per_day]).to be_between(avg - 1, avg + 1)
+        expect(stats[:min_checked_per_day]).to be_between(avg - 10, avg)
+        expect(stats[:max_checked_per_day]).to be_between(avg, avg + 10)
       end
     end
-
   end
 end
