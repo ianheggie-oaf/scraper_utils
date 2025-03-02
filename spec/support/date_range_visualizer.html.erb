@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Date Range Simulation Visualization</title>
+  <style>
+      body {
+          font-family: Arial, sans-serif;
+          margin: 20px;
+          line-height: 1.2;
+      }
+      h1, h2, h3 {
+          color: #333;
+      }
+      table {
+          border-collapse: collapse;
+          font-size: 12px;
+          margin-top: 20px;
+      }
+      th, td {
+          border: 1px solid #ddd;
+          padding: 4px;
+          text-align: center;
+      }
+      th {
+          background-color: #f2f2f2;
+          position: sticky;
+          top: 0;
+      }
+      .today {
+          font-weight: bold;
+          position: sticky;
+          left: 0;
+          background-color: #f2f2f2;
+      }
+      .searched-2 {
+          background-color: rgba(251, 234, 49, 0.6);
+      }
+      .searched-3 {
+          background-color: rgba(174, 46, 248, 0.6);
+      }
+      .searched-4 {
+          background-color: rgba(131, 244, 40, 0.6);
+      }
+      .searched-5 {
+          background-color: rgba(22, 147, 230, 0.6);
+      }
+      .searched-other {
+          background-color: #ffb366;
+      }
+      .ignore {
+          border-left: 1px solid #ddd;
+          border-right: 1px solid #ddd;
+          border-top: none;
+          border-bottom: none;
+          background-color: #aaaaaa;
+      }
+      .period-boundary {
+          border-left: 2px solid black;
+          border-bottom: 2px solid black;
+          border-right: none;
+          border-top: none;
+      }
+      .error-streak {
+          background-color: rgba(102, 34, 34, 0.7);
+          color: #fff;
+          font-weight: bold;
+      }
+      .legend {
+          margin: 20px 0;
+      }
+      .legend-item {
+          display: inline-block;
+          margin-right: 15px;
+      }
+      .legend-color {
+          display: inline-block;
+          width: 20px;
+          height: 20px;
+          margin-right: 5px;
+          border: 1px solid #ddd;
+          vertical-align: middle;
+      }
+      .container {
+          max-width: 100%;
+          overflow-x: auto;
+      }
+  </style>
+</head>
+<body>
+<h1>Date Range Simulation Visualization</h1>
+
+<div>
+  <strong>Simulation Period:</strong> <%= format_date(@start_date) %> to <%= format_date(@end_date) %><br>
+  <strong>Max Period:</strong> <%= @max_period %> days<br>
+  <strong>Everytime:</strong> <%= @everytime %> days
+</div>
+
+<div class="legend">
+  <strong>Legend:</strong>
+  <div class="legend-item">
+    <span class="legend-color searched-2" ></span> 2-day period
+  </div>
+  <div class="legend-item">
+    <span class="legend-color searched-3" ></span> 3-day period
+  </div>
+  <div class="legend-item">
+    <span class="legend-color searched-4" ></span> 4-day period
+  </div>
+  <div class="legend-item">
+    <span class="legend-color searched-5" ></span> 5-day period
+  </div>
+  <div class="legend-item">
+    <span class="legend-color searched-other" ></span> other merged / extended period
+  </div>
+  <div class="legend-item">
+    <span class="legend-color error-streak"></span> Error streak
+  </div>
+  <div class="legend-item">
+    <span class="legend-color ignore"></span> Ignore future / before search
+  </div>
+</div>
+
+<% if error_data %>
+  <div class="error-info">
+    <h3>Error Details</h3>
+    <p>
+      Error found on <%= error_data[:found_on] %>:
+      <%= error_data[:search_date] %> was unchecked for <%= error_data[:streak] %> days
+      (last checked on <%= error_data[:last_checked] %>)
+    </p>
+  </div>
+<% end %>
+
+<div class="container">
+  <table>
+    <thead>
+    <tr>
+      <th rowspan="2">Today</th>
+      <th colspan="<%= all_dates.size %>">Dates Searched</th>
+      <th rowspan="2"  title="Coverage of DISPLAYED range">Cov<wbr>er<wbr>age<wbr>%</th>
+    </tr>
+    <tr>
+      <% all_dates.each do |date| %>
+        <th><%= format_date(date) %></th>
+      <% end %>
+    </tr>
+    </thead>
+    <tbody>
+    <% today_dates.each do |today_date| %>
+      <tr>
+        <th class="today"><%= format_date(today_date) %></th>
+        <% all_dates.each do |search_date| %>
+          <%
+            cell_class, title, cell_content, col_span, row_span = cell_details(today_date, search_date)
+          %>
+          <% if cell_class || title || cell_content || col_span || row_span %>
+            <td class="<%= cell_class %>"<%= col_span != 1 ? " colspan=\"#{col_span}\"" : ''
+            %><%= row_span != 1? " rowspan=\"#{row_span}\"" : ''
+            %><% if title %> title="<%= title %>"<% end %> ><%= cell_content.sub('everytime', 'ET') %></td>
+          <% end %>
+       <% end %>
+        <td class="coverage" title="Coverage of DISPLAYED range"><%= today_coverage(today_date) %></td>
+      </tr>
+    <% end %>
+    </tbody>
+    <tfoot>
+      <tr>
+        <th  title="Coverage of DISPLAYED range">Cov<wbr>er<wbr>age<wbr>%</th>
+        <% all_dates.each do |search_date| %>
+            <td class="coverage"  title="Coverage of DISPLAYED range"><%= search_coverage(search_date) %></td>
+        <% end %>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+</body>
+</html>

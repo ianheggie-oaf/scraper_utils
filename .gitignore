@@ -9,6 +9,9 @@
 /test/tmp/
 /test/version_tmp/
 
+# Ignore log files
+/log/
+
 # Temp files
 ,*
 *.bak
