@@ -229,7 +229,9 @@ module ScraperUtils
         }
         @delay = delays.values.compact.max
         if @delay&.positive?
+          $stderr.flush
           puts "Delaying #{@delay} seconds, max of #{delays.inspect}" if ENV["DEBUG"]
+          $stdout.flush
           sleep(@delay)
         end
 
@@ -237,6 +239,8 @@ module ScraperUtils
       end
 
       def verify_proxy_works(agent)
+        $stderr.flush
+        $stdout.flush
         my_ip = MechanizeUtils.public_ip(agent)
         begin
           IPAddr.new(my_ip)

@@ -77,7 +77,7 @@ module ScraperUtils
       rescue StandardError => e
         if ENV["DEBUG"]
           ScraperUtils::FiberScheduler.log(
-            "Warning: Failed to fetch robots.txt for #{domain}: #{e.message}"
+            "WARNING: Failed to fetch robots.txt for #{domain}: #{e.message}"
           )
         end
         nil

@@ -84,6 +84,7 @@ module ScraperUtils
       end
       expect_bad ||= []
 
+      $stderr.flush
       puts "MORPH_EXPECT_BAD=#{ENV.fetch('MORPH_EXPECT_BAD', nil)}" if expect_bad.any?
 
       # Print summary table
@@ -137,6 +138,7 @@ module ScraperUtils
         end
       end
 
+      $stdout.flush
       if errors.any?
         errors << "See earlier output for details"
         raise errors.join("\n")

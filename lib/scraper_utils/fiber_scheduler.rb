@@ -34,11 +34,13 @@ module ScraperUtils
     # @return [void]
     def self.log(message)
       authority = current_authority
+      $stderr.flush
       if authority
         puts "[#{authority}] #{message}"
       else
         puts message
       end
+      $stdout.flush
     end
 
     # Returns a hash of exceptions encountered during processing, indexed by authority
@@ -117,7 +119,9 @@ module ScraperUtils
       registry << fiber
 
       if ENV["DEBUG"]
+        $stderr.flush
         puts "Registered #{authority} operation with fiber: #{fiber.object_id} for interleaving"
+        $stdout.flush
       end
       # Process immediately when testing
       fiber.resume if ScraperUtils::RandomizeUtils.sequential?
@@ -140,7 +144,9 @@ module ScraperUtils
           @resume_count += 1
           values[authority] = fiber.resume
         else
+          $stderr.flush
           puts "WARNING: fiber is dead but did not remove itself from registry! #{fiber.object_id}"
+          $stdout.flush
           registry.delete(fiber)
         end
       end
@@ -148,9 +154,11 @@ module ScraperUtils
       if @time_slept&.positive? && @delay_requested&.positive?
         percent_slept = (100.0 * @time_slept / @delay_requested).round(1)
       end
+      $stderr.flush
       puts "FiberScheduler processed #{@resume_count} calls to delay for #{count} registrations, " \
            "sleeping #{percent_slept}% (#{@time_slept&.round(1)}) of the " \
            "#{@delay_requested&.round(1)} seconds requested."
+      $stdout.flush
 
       exceptions
     end
