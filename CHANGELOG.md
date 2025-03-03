@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2 - 2025-03-04
+
+* Fix gem require list
+
 ## 0.4.1 - 2025-03-04
 
 * Document `ScraperUtils::CycleUtils.pick(values)`
