@@ -44,7 +44,7 @@ RSpec.describe ScraperUtils::RobotsChecker do
 
         expect do
           robots_checker.disallowed?("https://example.com/test")
-        end.to output(/Warning: Failed to fetch robots.txt.*test error/m).to_stdout
+        end.to output(/WARNING: Failed to fetch robots.txt.*test error/m).to_stdout
       end
     end
 

@@ -23,6 +23,11 @@ module ScraperUtils
     #     random_delay: 10
     #   )
     class AgentConfig
+      DEFAULT_TIMEOUT = 60
+      DEFAULT_RANDOM_DELAY = 5
+      DEFAULT_MAX_LOAD = 33.3
+      MAX_LOAD_CAP = 50.0
+
       # Class-level defaults that can be modified
       class << self
         # @return [Integer] Default timeout in seconds for agent connections
@@ -62,10 +67,10 @@ module ScraperUtils
         # Reset all configuration options to their default values
         # @return [void]
         def reset_defaults!
-          @default_timeout = ENV.fetch('MORPH_TIMEOUT', 60).to_i # 60
+          @default_timeout = ENV.fetch('MORPH_TIMEOUT', DEFAULT_TIMEOUT).to_i # 60
           @default_compliant_mode = ENV.fetch('MORPH_NOT_COMPLIANT', nil).to_s.empty? # true
-          @default_random_delay = ENV.fetch('MORPH_RANDOM_DELAY', 15).to_i # 15
-          @default_max_load = ENV.fetch('MORPH_MAX_LOAD', 20.0).to_f # 20
+          @default_random_delay = ENV.fetch('MORPH_RANDOM_DELAY', DEFAULT_RANDOM_DELAY).to_i # 33
+          @default_max_load = ENV.fetch('MORPH_MAX_LOAD', DEFAULT_MAX_LOAD).to_f # 20
           @default_disable_ssl_certificate_check = !ENV.fetch('MORPH_DISABLE_SSL_CHECK', nil).to_s.empty? # false
           @default_australian_proxy = !ENV.fetch('MORPH_USE_PROXY', nil).to_s.empty? # false
           @default_user_agent = ENV.fetch('MORPH_USER_AGENT', nil) # Uses Mechanize user agent
@@ -102,7 +107,7 @@ module ScraperUtils
         @compliant_mode = compliant_mode.nil? ? self.class.default_compliant_mode : compliant_mode
         @random_delay = random_delay.nil? ? self.class.default_random_delay : random_delay
         @max_load = max_load.nil? ? self.class.default_max_load : max_load
-        @max_load = [@max_load || 20.0, 33.0].min if @compliant_mode
+        @max_load = [@max_load || DEFAULT_MAX_LOAD, MAX_LOAD_CAP].min if @compliant_mode
         @user_agent = user_agent.nil? ? self.class.default_user_agent : user_agent
 
         @disable_ssl_certificate_check = if disable_ssl_certificate_check.nil?
@@ -199,7 +204,7 @@ module ScraperUtils
 
       def pre_connect_hook(_agent, request)
         @connection_started_at = Time.now
-        return unless ENV["DEBUG"]
+        return unless DebugUtils.verbose?
 
         ScraperUtils::FiberScheduler.log(
           "Pre Connect request: #{request.inspect} at #{@connection_started_at}"
@@ -210,7 +215,7 @@ module ScraperUtils
         raise ArgumentError, "URI must be present in post-connect hook" unless uri
 
         response_time = Time.now - @connection_started_at
-        if ENV["DEBUG"]
+        if DebugUtils.basic?
           ScraperUtils::FiberScheduler.log(
             "Post Connect uri: #{uri.inspect}, response: #{response.inspect} " \
             "after #{response_time} seconds"
@@ -230,9 +235,9 @@ module ScraperUtils
         @delay = delays.values.compact.max
         if @delay&.positive?
           $stderr.flush
-          puts "Delaying #{@delay} seconds, max of #{delays.inspect}" if ENV["DEBUG"]
+          ScraperUtils::FiberScheduler.log("Delaying #{@delay} seconds, max of #{delays.inspect}") if ENV["DEBUG"]
           $stdout.flush
-          sleep(@delay)
+          ScraperUtils::FiberScheduler.delay(@delay)
         end
 
         response
@@ -241,6 +246,7 @@ module ScraperUtils
       def verify_proxy_works(agent)
         $stderr.flush
         $stdout.flush
+        FiberScheduler.log "Checking proxy works..."
         my_ip = MechanizeUtils.public_ip(agent)
         begin
           IPAddr.new(my_ip)

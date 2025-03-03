@@ -14,7 +14,7 @@ module ScraperUtils
     # * Crawl-delay from either User-agent: bot name or * (default)
     def initialize(user_agent)
       @user_agent = extract_user_agent(user_agent).downcase
-      if ENV["DEBUG"]
+      if DebugUtils.basic?
         ScraperUtils::FiberScheduler.log(
           "Checking robots.txt for user agent prefix: #{@user_agent} (case insensitive)"
         )
@@ -75,7 +75,7 @@ module ScraperUtils
         @rules[domain] = rules
         rules
       rescue StandardError => e
-        if ENV["DEBUG"]
+        if DebugUtils.basic?
           ScraperUtils::FiberScheduler.log(
             "WARNING: Failed to fetch robots.txt for #{domain}: #{e.message}"
           )

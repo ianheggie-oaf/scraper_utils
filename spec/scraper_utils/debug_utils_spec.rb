@@ -4,12 +4,31 @@ require_relative "../spec_helper"
 require "json"
 
 RSpec.describe ScraperUtils::DebugUtils do
+  describe ".debug?" do
+    context "when DEBUG environment variable is set" do
+      before { ENV[ScraperUtils::DebugUtils::DEBUG_ENV_VAR] = "3" }
+      after { ENV.delete(ScraperUtils::DebugUtils::DEBUG_ENV_VAR) }
+
+      it "returns true" do
+        expect(described_class.debug?).to be true
+      end
+    end
+
+    context "when DEBUG environment variable is not set" do
+      before { ENV.delete(ScraperUtils::DebugUtils::DEBUG_ENV_VAR) }
+
+      it "returns false" do
+        expect(described_class.debug?).to be false
+      end
+    end
+  end
+
   describe ".debug_request" do
     let(:method) { "GET" }
     let(:url) { "https://example.com" }
 
     context "when debug mode is on" do
-      before { allow(ScraperUtils).to receive(:debug?).and_return(true) }
+      before { allow(described_class).to receive(:debug?).and_return(true) }
 
       it "prints request details" do
         expect do
@@ -42,7 +61,7 @@ RSpec.describe ScraperUtils::DebugUtils do
     end
 
     context "when debug mode is off" do
-      before { allow(ScraperUtils).to receive(:debug?).and_return(false) }
+      before { allow(described_class).to receive(:debug?).and_return(false) }
 
       it "does not print anything" do
         expect do
@@ -58,7 +77,7 @@ RSpec.describe ScraperUtils::DebugUtils do
     let(:message) { "Test debug page" }
 
     context "when debug mode is on" do
-      before { allow(ScraperUtils).to receive(:debug?).and_return(true) }
+      before { allow(described_class).to receive(:debug?).and_return(true) }
 
       it "prints page details" do
         allow(page).to receive(:uri).and_return("https://example.com")
@@ -84,7 +103,7 @@ RSpec.describe ScraperUtils::DebugUtils do
     end
 
     context "when debug mode is off" do
-      before { allow(ScraperUtils).to receive(:debug?).and_return(false) }
+      before { allow(described_class).to receive(:debug?).and_return(false) }
 
       it "does not print anything" do
         expect do
@@ -101,7 +120,7 @@ RSpec.describe ScraperUtils::DebugUtils do
     let(:message) { "Test selector" }
 
     context "when debug mode is on" do
-      before { allow(ScraperUtils).to receive(:debug?).and_return(true) }
+      before { allow(described_class).to receive(:debug?).and_return(true) }
 
       it "prints selector details when element found" do
         element = double(to_html: '<div class="test">Test Content</div>')
@@ -125,7 +144,7 @@ RSpec.describe ScraperUtils::DebugUtils do
     end
 
     context "when debug mode is off" do
-      before { allow(ScraperUtils).to receive(:debug?).and_return(false) }
+      before { allow(described_class).to receive(:debug?).and_return(false) }
 
       it "does not print anything" do
         expect do

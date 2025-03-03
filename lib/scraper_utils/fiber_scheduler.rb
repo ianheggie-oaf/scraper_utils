@@ -118,10 +118,8 @@ module ScraperUtils
       fiber.instance_variable_set(:@authority, authority)
       registry << fiber
 
-      if ENV["DEBUG"]
-        $stderr.flush
-        puts "Registered #{authority} operation with fiber: #{fiber.object_id} for interleaving"
-        $stdout.flush
+      if DebugUtils.basic?
+        FiberScheduler.log "Registered #{authority} operation with fiber: #{fiber.object_id} for interleaving"
       end
       # Process immediately when testing
       fiber.resume if ScraperUtils::RandomizeUtils.sequential?
@@ -144,9 +142,7 @@ module ScraperUtils
           @resume_count += 1
           values[authority] = fiber.resume
         else
-          $stderr.flush
-          puts "WARNING: fiber is dead but did not remove itself from registry! #{fiber.object_id}"
-          $stdout.flush
+          FiberScheduler.log "WARNING: fiber is dead but did not remove itself from registry! #{fiber.object_id}"
           registry.delete(fiber)
         end
       end
@@ -154,11 +150,11 @@ module ScraperUtils
       if @time_slept&.positive? && @delay_requested&.positive?
         percent_slept = (100.0 * @time_slept / @delay_requested).round(1)
       end
-      $stderr.flush
-      puts "FiberScheduler processed #{@resume_count} calls to delay for #{count} registrations, " \
+      puts
+      FiberScheduler.log "FiberScheduler processed #{@resume_count} calls to delay for #{count} registrations, " \
            "sleeping #{percent_slept}% (#{@time_slept&.round(1)}) of the " \
            "#{@delay_requested&.round(1)} seconds requested."
-      $stdout.flush
+      puts
 
       exceptions
     end
@@ -178,10 +174,20 @@ module ScraperUtils
       if !enabled? || !current_fiber || registry.size <= 1
         @time_slept ||= 0.0
         @time_slept += seconds
+        log("Sleeping #{seconds.round(3)} seconds") if DebugUtils.basic?
         return sleep(seconds)
       end
 
-      resume_at = Time.now + seconds
+      now = Time.now
+      resume_at = now + seconds
+
+      # Don't resume at the same time as someone else,
+      # FIFO queue if seconds == 0
+      @other_resumes ||= []
+      @other_resumes = @other_resumes.delete_if { |t| t < now }
+      while @other_resumes.include?(resume_at) && resume_at
+        resume_at += 0.01
+      end
 
       # Used to compare when other fibers need to be resumed
       current_fiber.instance_variable_set(:@resume_at, resume_at)
@@ -194,6 +200,7 @@ module ScraperUtils
       if remaining.positive?
         @time_slept ||= 0.0
         @time_slept += remaining
+        log("Sleeping remaining #{remaining.round(3)} seconds") if DebugUtils.basic?
         sleep(remaining)
       end || 0
     end

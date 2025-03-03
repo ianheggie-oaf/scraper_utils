@@ -85,7 +85,7 @@ module ScraperUtils
       expect_bad ||= []
 
       $stderr.flush
-      puts "MORPH_EXPECT_BAD=#{ENV.fetch('MORPH_EXPECT_BAD', nil)}" if expect_bad.any?
+      puts "MORPH_EXPECT_BAD=#{ENV.fetch('MORPH_EXPECT_BAD', nil)}"
 
       # Print summary table
       puts "\nScraping Summary:"

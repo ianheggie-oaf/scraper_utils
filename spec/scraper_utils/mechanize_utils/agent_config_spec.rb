@@ -28,14 +28,18 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
       it "creates default configuration and displays it" do
         expect { described_class.new }
           .to output(
-            "Configuring Mechanize agent with timeout=60, australian_proxy=false, " \
-            "compliant_mode, random_delay=15, max_load=20.0%\n"
-          ).to_stdout
+                ["Configuring Mechanize agent with",
+                 "timeout=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_TIMEOUT},",
+                 "australian_proxy=false, compliant_mode,",
+                 "random_delay=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_RANDOM_DELAY},",
+                 "max_load=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_MAX_LOAD}%\n"
+                ].join(' ')
+              ).to_stdout
       end
     end
 
     context "with debug logging" do
-      before { ENV["DEBUG"] = "1" }
+      before { ENV["DEBUG"] = "2" }
 
       it "logs connection details" do
         config = described_class.new
@@ -47,17 +51,17 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
     end
 
     context "with default configuration" do
-      it "creates default configuration with 20% max load" do
+      it "creates default configuration with default max load" do
         expect { described_class.new }.to output(
-          /max_load=20.0%/
-        ).to_stdout
+                                            /max_load=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_MAX_LOAD}%/
+                                          ).to_stdout
       end
     end
 
     context "with compliant mode" do
-      it "caps max_load at 33% when compliant mode is true" do
-        config = described_class.new(max_load: 50.0, compliant_mode: true)
-        expect(config.max_load).to eq(33.0)
+      it "caps max_load when compliant mode is true" do
+        config = described_class.new(max_load: 999.0, compliant_mode: true)
+        expect(config.max_load).to eq(ScraperUtils::MechanizeUtils::AgentConfig::MAX_LOAD_CAP)
       end
     end
 
@@ -81,12 +85,19 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
 
     context "with proxy configuration edge cases" do
       it "handles proxy without australian_proxy authority" do
+        ENV["MORPH_AUSTRALIAN_PROXY"] = "https://example.com:8888/"
         expect do
-          described_class.new
+          described_class.new(australian_proxy: true)
         end.to output(
-          "Configuring Mechanize agent with timeout=60, australian_proxy=false, " \
-          "compliant_mode, random_delay=15, max_load=20.0%\n"
-        ).to_stdout
+                 ["Configuring Mechanize agent with",
+                  "timeout=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_TIMEOUT},",
+                  "australian_proxy=true, compliant_mode,",
+                  "random_delay=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_RANDOM_DELAY},",
+                  "max_load=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_MAX_LOAD}%\n"
+                 ].join(' ')
+               ).to_stdout
+      ensure
+        ENV["MORPH_AUSTRALIAN_PROXY"] = nil
       end
 
       it "handles empty proxy URL" do
@@ -94,14 +105,18 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
         expect do
           described_class.new(australian_proxy: true)
         end.to output(
-          "Configuring Mechanize agent with timeout=60, MORPH_AUSTRALIAN_PROXY not set, " \
-          "compliant_mode, random_delay=15, max_load=20.0%\n"
-        ).to_stdout
+                 ["Configuring Mechanize agent with",
+                  "timeout=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_TIMEOUT},",
+                  "MORPH_AUSTRALIAN_PROXY not set, compliant_mode,",
+                  "random_delay=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_RANDOM_DELAY},",
+                  "max_load=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_MAX_LOAD}%\n"
+                 ].join(' ')
+               ).to_stdout
       end
     end
 
     context "with debug logging" do
-      before { ENV["DEBUG"] = "1" }
+      before { ENV["DEBUG"] = "2" }
 
       it "logs connection details" do
         config = described_class.new
@@ -310,10 +325,10 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
 
         described_class.reset_defaults!
 
-        expect(described_class.default_timeout).to eq(60)
+        expect(described_class.default_timeout).to eq(ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_TIMEOUT)
         expect(described_class.default_compliant_mode).to be(true)
-        expect(described_class.default_random_delay).to eq(15)
-        expect(described_class.default_max_load).to eq(20.0)
+        expect(described_class.default_random_delay).to eq(ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_RANDOM_DELAY)
+        expect(described_class.default_max_load).to eq(ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_MAX_LOAD)
         expect(described_class.default_disable_ssl_certificate_check).to be(false)
         expect(described_class.default_australian_proxy).to eq(false)
         expect(described_class.default_user_agent).to be_nil

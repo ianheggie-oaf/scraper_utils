@@ -222,6 +222,7 @@ The `ScraperUtils::FiberScheduler` provides a lightweight utility that:
 * allows you to increase the random delay for authorities without undue effect on total run time
 * For the curious, it uses [ruby fibers](https://ruby-doc.org/core-2.5.8/Fiber.html) rather than threads as that is
   a simpler system and thus easier to get right, understand and debug!
+* Cycles around the authorities when compliant_mode, max_load and random_delay are disabled
 
 To enable change the scrape method to be like [example scrape method using fibers](docs/example_scrape_with_fibers.rb)
 
@@ -273,11 +274,11 @@ Randomizing Requests
 Pass a `Collection` or `Array` to `ScraperUtils::RandomizeUtils.randomize_order` to randomize it in production, but
 receive in as is when testing.
 
-Use this with the list of records scraped from an index to randomise the requests to be less Bot like.
+Use this with the list of records scraped from an index to randomise any requests for further information to be less Bot like.
 
-    ### Spec setup
+### Spec setup
 
-    You should enforce sequential mode when testing by adding the following code to `spec/spec_helper.rb` :
+You should enforce sequential mode when testing by adding the following code to `spec/spec_helper.rb` :
 
 ```
 ScraperUtils::RandomizeUtils.sequential = true
@@ -285,7 +286,7 @@ ScraperUtils::RandomizeUtils.sequential = true
 
 Note:
 
-* You can also force sequential mode by setting the env variable `MORPH_PROCESS_SEQUENTIALLY` to a value, eg: `1`
+* You can also force sequential mode by setting the env variable `MORPH_PROCESS_SEQUENTIALLY` to `1` (any non blank)
 * testing using VCR requires sequential mode
 
 Development
