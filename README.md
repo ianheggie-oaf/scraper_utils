@@ -282,6 +282,9 @@ Simple utility for cycling through options based on Julian day number:
 # Toggle between main and alternate behaviour
 alternate = ScraperUtils::CycleUtils.position(2).even?
 
+# OR cycle through a list of values day by day:
+period = ScraperUtils::CycleUtils.pick(['L28', 'L7', 'L14', 'L7'])
+
 # Use with any cycle size
 pos = ScraperUtils::CycleUtils.position(7) # 0-6 cycle
 

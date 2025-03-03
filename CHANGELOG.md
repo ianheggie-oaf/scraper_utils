@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1 - 2025-03-04
+
+* Document `ScraperUtils::CycleUtils.pick(values)`
+
 ## 0.4.0 - 2025-03-04
 
 * Add Cycle Utils as an alternative to Date range utils
