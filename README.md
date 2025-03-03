@@ -33,8 +33,7 @@ Even without specific configuration, our scrapers will, by default:
   In the default "compliant mode" this defaults to a max load of 20% and is capped at 33%.
 
 - **Add randomized delays**: We add random delays between requests to further reduce our impact on servers, which should
-  bring us
-- down to the load of a single industrious person.
+  bring us down to the load of a single industrious person.
 
 Extra utilities provided for scrapers to further reduce your server load:
 
@@ -43,6 +42,9 @@ Extra utilities provided for scrapers to further reduce your server load:
 - **Intelligent Date Range selection**: This reduces server load by over 60% by a smarter choice of date range searches,
   checking the recent 4 days each day and reducing down to checking each 3 days by the end of the 33-day mark. This
   replaces the simplistic check of the last 30 days each day.
+
+- Alternative **Cycle Utilities** - a convenience class to cycle through short and longer search ranges to reduce server
+  load.
 
 Our goal is to access public planning information without negatively impacting your services.
 
@@ -123,15 +125,14 @@ The agent returned is configured using Mechanize hooks to implement the desired 
 By default, the Mechanize agent is configured with the following settings.
 As you can see, the defaults can be changed using env variables.
 
-Note - compliant mode forces max_load to be set to a value no greater than 33.
-PLEASE don't use our user agent string with a max_load higher than 33!
+Note - compliant mode forces max_load to be set to a value no greater than 50.
 
 ```ruby
 ScraperUtils::MechanizeUtils::AgentConfig.configure do |config|
   config.default_timeout = ENV.fetch('MORPH_TIMEOUT', 60).to_i # 60
   config.default_compliant_mode = ENV.fetch('MORPH_NOT_COMPLIANT', nil).to_s.empty? # true
-  config.default_random_delay = ENV.fetch('MORPH_RANDOM_DELAY', 15).to_i # 15
-  config.default_max_load = ENV.fetch('MORPH_MAX_LOAD', 20.0).to_f # 20
+  config.default_random_delay = ENV.fetch('MORPH_RANDOM_DELAY', 5).to_i # 5
+  config.default_max_load = ENV.fetch('MORPH_MAX_LOAD', 33.3).to_f # 33.3
   config.default_disable_ssl_certificate_check = !ENV.fetch('MORPH_DISABLE_SSL_CHECK', nil).to_s.empty? # false
   config.default_australian_proxy = !ENV.fetch('MORPH_USE_PROXY', nil).to_s.empty? # false
   config.default_user_agent = ENV.fetch('MORPH_USER_AGENT', nil) # Uses Mechanize user agent
@@ -268,13 +269,37 @@ Typical server load reductions:
 
 See the class documentation for customizing defaults and passing options.
 
+### Other possibilities
+
+If the site uses tags like 'L28', 'L14' and 'L7' for the last 28, 14 and 7 days, an alternative solution
+is to cycle through ['L28', 'L7', 'L14', 'L7'] which would drop the load by 50% and be less Bot like.
+
+Cycle Utils
+-----------
+Simple utility for cycling through options based on Julian day number:
+
+```ruby
+# Toggle between main and alternate behaviour
+alternate = ScraperUtils::CycleUtils.position(2).even?
+
+# Use with any cycle size
+pos = ScraperUtils::CycleUtils.position(7) # 0-6 cycle
+
+# Test with specific date
+pos = ScraperUtils::CycleUtils.position(3, date: Date.new(2024, 1, 5))
+
+# Override for testing
+# CYCLE_POSITION=2 bundle exec ruby scraper.rb
+```
+
 Randomizing Requests
 --------------------
 
 Pass a `Collection` or `Array` to `ScraperUtils::RandomizeUtils.randomize_order` to randomize it in production, but
 receive in as is when testing.
 
-Use this with the list of records scraped from an index to randomise any requests for further information to be less Bot like.
+Use this with the list of records scraped from an index to randomise any requests for further information to be less Bot
+like.
 
 ### Spec setup
 
