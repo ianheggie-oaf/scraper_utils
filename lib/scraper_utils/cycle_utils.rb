@@ -19,6 +19,7 @@ module ScraperUtils
     # @return value from array
     # Can override using CYCLE_POSITION ENV variable
     def self.pick(values, date: nil)
+      values = values.to_a
       values[position(values.size, date: date)]
     end
   end
