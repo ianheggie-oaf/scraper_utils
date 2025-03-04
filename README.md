@@ -20,41 +20,47 @@ To control our access:
 - Set a crawl delay, eg: `Crawl-delay: 20`
 - If needed specify disallowed paths*: `Disallow: /private/`
 
-### Built-in Politeness Features
+### We play nice with your servers
 
-Even without specific configuration, our scrapers will, by default:
+Our goal is to access public planning information with minimal impact on your services. The following features are on by
+default:
 
 - **Identify themselves**: Our user agent clearly indicates who we are and provides a link to the project repository:
   `Mozilla/5.0 (compatible; ScraperUtils/0.2.0 2025-02-22; +https://github.com/ianheggie-oaf/scraper_utils)`
 
-- **Limit server load**: We slow down our requests so we should never be a significant load to your server, let alone
-  overload it.
-  The slower your server is running, the longer the delay we add between requests to help.
-  In the default "compliant mode" this defaults to a max load of 20% and is capped at 33%.
+- **Limit server load**:
 
-- **Add randomized delays**: We add random delays between requests to further reduce our impact on servers, which should
-  bring us down to the load of a single industrious person.
+    - We wait double your response time before making another request to avoid being a significant load on your server
+      as well as
+      help your server when it is under extra load from other sources.
 
-Extra utilities provided for scrapers to further reduce your server load:
+    - We also randomly add extra delays to give your server a chance to catch up with background tasks
 
-- **Interleave requests**: This spreads out the requests to your server rather than focusing on one scraper at a time.
+We also provide extra utilities that scrapers can use to reduce the total request load:
 
-- **Intelligent Date Range selection**: This reduces server load by over 60% by a smarter choice of date range searches,
-  checking the recent 4 days each day and reducing down to checking each 3 days by the end of the 33-day mark. This
-  replaces the simplistic check of the last 30 days each day.
+- **Intelligent Date Range selection**: This reduces server load by over 60% by a smarter choice of date range
+  searches, checking the recent 4 days each day and reducing down to checking each 3 days by the end of the 33-day mark.
+  This replaces the simplistic check of the last 30 days each day.
 
-- Alternative **Cycle Utilities** - a convenience class to cycle through short and longer search ranges to reduce server
-  load.
+- **Cycle Utilities** - a convenience class to cycle through short and longer search ranges to reduce
+  server load. A search cycling through the last 28,7,14,7 days for instance reduces the dates searched by 50%
 
-Our goal is to access public planning information without negatively impacting your services.
+For Scraper Developers
+----------------------
+
+As well as the features mentioned above, we also provide extra utilities to make developing, running and debugging your
+scraper easier! See below for a summary and links to further information.
 
 Installation
 ------------
 
-Add these line to your application's Gemfile:
+Add these line to your [scraper's](https://www.planningalerts.org.au/how_to_write_a_scraper) Gemfile:
 
 ```ruby
+# Below:
 gem "scraperwiki", git: "https://github.com/openaustralia/scraperwiki-ruby.git", branch: "morph_defaults"
+
+# Add:
 gem 'scraper_utils'
 ```
 
@@ -101,7 +107,7 @@ export MORPH_AUTHORITIES=noosa,wagga
 Optionally enable verbose debugging messages when developing:
 
 ```bash
-export DEBUG=1
+export DEBUG=1 # for basic, or 2 for verbose or 3 for tracing nearly everything
 ```
 
 ### Extra Mechanize options
