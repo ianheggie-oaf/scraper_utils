@@ -53,7 +53,7 @@ module ScraperUtils
     #     [:click, ["Option A", "Option B"]],        # Click on one of these options (randomly selected)
     #     [:click, "css:.some-button"],              # Use CSS selector
     #     [:click, "xpath://div[@id='results']/a"],  # Use XPath selector
-    #     [:block, ->(page, agent, action, results) { [page, { custom_results: 'data' }] }] # Custom block
+    #     [:block, ->(page, args, agent, results) { [page, { custom_results: 'data' }] }] # Custom block
     #   ]
     def process(page, actions)
       @results = []
