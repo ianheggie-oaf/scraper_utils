@@ -13,8 +13,8 @@ Gem::Specification.new do |spec|
 
   spec.summary = "planningalerts scraper utilities"
   spec.description = "Utilities to help make planningalerts scrapers, " \
-                     "+especially multis easier to develop, run and debug."
-  spec.homepage = "https://github.com/ianheggie-oaf/scraper_utils"
+    "especially multi authority scrapers, easier to develop, run and debug."
+  spec.homepage = "https://github.com/ianheggie-oaf/#{spec.name}"
   spec.license = "MIT"
 
   if spec.respond_to?(:metadata)
@@ -22,10 +22,11 @@ Gem::Specification.new do |spec|
 
     spec.metadata["homepage_uri"] = spec.homepage
     spec.metadata["source_code_uri"] = spec.homepage
-    # spec.metadata["changelog_uri"] = "TODO: Put your gem's CHANGELOG.md URL here."
+    spec.metadata["documentation_uri"] = "https://rubydoc.info/gems/#{spec.name}/#{ScraperUtils::VERSION}"
+    spec.metadata["changelog_uri"] = "#{spec.metadata["source_code_uri"]}/blob/main/CHANGELOG.md"
   else
     raise "RubyGems 2.0 or newer is required to protect against " \
-          "public gem pushes."
+            "public gem pushes."
   end
 
   # Specify which files should be added to the gem when it is released.
