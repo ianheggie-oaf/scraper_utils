@@ -56,6 +56,7 @@ For detailed setup and configuration options, see the [Getting Started guide](do
 - Configure Mechanize agents with sensible defaults
 - Automatic rate limiting based on server response times
 - Supports robots.txt and crawl-delay directives
+- Supports extra actions required to get to results page
 - [Learn more about Mechanize utilities](docs/mechanize_utilities.md)
 
 ### Optimize Server Load

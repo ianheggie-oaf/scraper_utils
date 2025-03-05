@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0 - 2025-03-05
+
+* Add action processing utility
+
 ## 0.4.2 - 2025-03-04
 
 * Fix gem require list
