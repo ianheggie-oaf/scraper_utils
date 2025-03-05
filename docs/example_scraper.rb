@@ -4,7 +4,7 @@
 $LOAD_PATH << "./lib"
 
 require "scraper_utils"
-require "technology_one_scraper"
+require "your_scraper"
 
 # Main Scraper class
 class Scraper
@@ -17,26 +17,18 @@ class Scraper
     authorities.each do |authority_label|
       puts "\nCollecting feed data for #{authority_label}, attempt: #{attempt}..."
 
-      begin
-        # REPLACE:
-        # YourScraper.scrape(authority_label) do |record|
-        #   record["authority_label"] = authority_label.to_s
-        #   YourScraper.log(record)
-        #   ScraperWiki.save_sqlite(%w[authority_label council_reference], record)
-        # end
-        # WITH:
-        ScraperUtils::DataQualityMonitor.start_authority(authority_label)
-        YourScraper.scrape(authority_label) do |record|
-          begin
-            record["authority_label"] = authority_label.to_s
-            ScraperUtils::DbUtils.save_record(record)
-          rescue ScraperUtils::UnprocessableRecord => e
-            ScraperUtils::DataQualityMonitor.log_unprocessable_record(e, record)
-            exceptions[authority_label] = e
-          end
+      # REPLACE section with:
+      ScraperUtils::DataQualityMonitor.start_authority(authority_label)
+      YourScraper.scrape(authority_label) do |record|
+        begin
+          record["authority_label"] = authority_label.to_s
+          ScraperUtils::DbUtils.save_record(record)
+        rescue ScraperUtils::UnprocessableRecord => e
+          ScraperUtils::DataQualityMonitor.log_unprocessable_record(e, record)
+          exceptions[authority_label] = e
         end
-        # END OF REPLACE
       end
+      # END OF REPLACE
     rescue StandardError => e
       warn "#{authority_label}: ERROR: #{e}"
       warn e.backtrace
@@ -86,8 +78,9 @@ end
 
 if __FILE__ == $PROGRAM_NAME
   # Default to list of authorities we can't or won't fix in code, explain why
-  # wagga: url redirects and then reports Application error
+  # some: url-for-issue Summary Reason
+  # councils : url-for-issue Summary Reason
 
-  ENV["MORPH_EXPECT_BAD"] ||= "wagga"
+  ENV["MORPH_EXPECT_BAD"] ||= "some,councils"
   Scraper.run(Scraper.selected_authorities)
 end

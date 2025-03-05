@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1 - 2025-03-05
+
+* Remove duplicated example code in docs
+
 ## 0.5.0 - 2025-03-05
 
 * Add action processing utility
