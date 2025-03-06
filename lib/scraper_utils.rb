@@ -14,6 +14,7 @@ require "scraper_utils/mechanize_utils/agent_config"
 require "scraper_utils/mechanize_utils"
 require "scraper_utils/randomize_utils"
 require "scraper_utils/robots_checker"
+require "scraper_utils/thread_scheduler"
 require "scraper_utils/version"
 
 # Utilities for planningalerts scrapers

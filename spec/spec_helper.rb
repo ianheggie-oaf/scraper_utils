@@ -20,11 +20,9 @@ SimpleCov.formatter = SimpleCov::Formatter::MultiFormatter.new(
 )
 
 require "bundler/setup"
-require "scraper_utils"
 require "rspec"
 
-# Require all library files
-Dir[File.expand_path("../lib/**/*.rb", __dir__ || "spec/")].each { |f| require f }
+require "scraper_utils"
 
 # Load all support files
 Dir[File.expand_path('./support/**/*.rb', __dir__ || "spec/")].each { |f| require f }
