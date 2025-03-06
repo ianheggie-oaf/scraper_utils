@@ -15,6 +15,7 @@ RSpec.describe ScraperUtils::ThreadScheduler do
     let(:test_url2) { "http://example.com/test2" }
     let(:test_form_url) { "http://example.com/form" }
     let(:mechanize_client) { Mechanize.new }
+    let(:fiber_id) { 12345 }
     
     before do
       # Stub HTTP requests
@@ -35,116 +36,100 @@ RSpec.describe ScraperUtils::ThreadScheduler do
                    headers: { 'Content-Type' => 'text/html' })
     end
     
-    it "executes a GET request and stores the result in fiber data" do
-      fiber = Fiber.new { Fiber.yield }
-      
-      command = {
-        client: mechanize_client,
-        method: :get,
-        args: [test_url]
-      }
+    it "executes a GET request and returns the response" do
+      request = ScraperUtils::NetworkRequest.new(fiber_id, mechanize_client, :get, [test_url])
       
       # Queue the request
-      executor.queue_request(fiber, command)
+      executor.queue_request(request)
       
       # Wait a bit for the request to complete
       sleep 0.1
       
       # Process responses
-      processed = executor.process_responses
+      responses = executor.process_responses
       
-      # Check that our fiber was processed
-      expect(processed).to be_an(Array)
-      expect(processed.size).to eq(1)
-      expect(processed[0][0]).to eq(fiber)
+      # Check that we got a response
+      expect(responses).to be_an(Array)
+      expect(responses.size).to eq(1)
       
-      # Check the fiber data
-      fiber_data = fiber.instance_variable_get(:@data)
-      expect(fiber_data[:last_response]).to be_a(Mechanize::Page)
-      expect(fiber_data[:last_response].body).to include("Test Page")
-      expect(fiber_data[:last_error]).to be_nil
-      expect(fiber_data[:last_request_time]).to be_a(Float)
-      expect(fiber_data[:last_request_time]).to be > 0
-      expect(fiber_data[:response_ready]).to be true
+      response = responses.first
+      expect(response).to be_a(ScraperUtils::NetworkResponse)
+      expect(response.fiber_id).to eq(fiber_id)
+      expect(response.result).to be_a(Mechanize::Page)
+      expect(response.result.body).to include("Test Page")
+      expect(response.error).to be_nil
+      expect(response.time_taken).to be > 0
+      expect(response.success?).to be true
     end
     
-    it "handles errors and stores them in fiber data" do
-      fiber = Fiber.new { Fiber.yield }
-      
-      command = {
-        client: mechanize_client,
-        method: :get,
-        args: ["http://example.com/error"]
-      }
+    it "handles errors and returns them in the response" do
+      request = ScraperUtils::NetworkRequest.new(fiber_id, mechanize_client, :get, ["http://example.com/error"])
       
       # Queue the request
-      executor.queue_request(fiber, command)
+      executor.queue_request(request)
       
       # Wait a bit for the request to complete
       sleep 0.1
       
       # Process responses
-      executor.process_responses
+      responses = executor.process_responses
       
-      # Check the fiber data
-      fiber_data = fiber.instance_variable_get(:@data)
-      expect(fiber_data[:last_response]).to be_nil
-      expect(fiber_data[:last_error]).to be_a(Exception)
-      expect(fiber_data[:last_request_time]).to be_a(Float)
-      expect(fiber_data[:last_request_time]).to be > 0
-      expect(fiber_data[:response_ready]).to be true
+      # Check the response
+      response = responses.first
+      expect(response.fiber_id).to eq(fiber_id)
+      expect(response.result).to be_nil
+      expect(response.error).to be_a(Exception)
+      expect(response.time_taken).to be > 0
+      expect(response.success?).to be false
     end
     
     it "handles timeout for process_responses" do
       # No requests queued, so should time out
       result = executor.process_responses(0.1)
-      expect(result).to be_nil
+      expect(result).to be_empty
     end
     
     it "executes multiple requests in parallel" do
-      fibers = 3.times.map do |i|
-        Fiber.new { Fiber.yield }
-      end
+      fiber_ids = [1001, 1002, 1003]
       
       start_time = Time.now
       
-      # Queue requests for all fibers
-      fibers.each_with_index do |fiber, i|
-        command = {
-          client: Mechanize.new, # Each fiber gets its own Mechanize instance
-          method: :get,
-          args: [i.even? ? test_url : test_url2]
-        }
+      # Queue requests
+      fiber_ids.each_with_index do |id, i|
+        request = ScraperUtils::NetworkRequest.new(
+          id, 
+          Mechanize.new, # Each request gets its own Mechanize instance
+          :get,
+          [i.even? ? test_url : test_url2]
+        )
         
-        executor.queue_request(fiber, command)
+        executor.queue_request(request)
       end
       
       # Wait for all requests to complete
       sleep 0.5
       
       # Process all responses
-      processed = executor.process_responses
+      responses = executor.process_responses
       
       total_time = Time.now - start_time
       
-      # Check that all fibers were processed
-      expect(processed).to be_an(Array)
-      expect(processed.size).to eq(3)
+      # Check that all requests were processed
+      expect(responses).to be_an(Array)
+      expect(responses.size).to eq(3)
       
-      # Check that each request succeeded
-      fibers.each do |fiber|
-        fiber_data = fiber.instance_variable_get(:@data)
-        expect(fiber_data[:last_response]).to be_a(Mechanize::Page)
-        expect(fiber_data[:last_error]).to be_nil
-        expect(fiber_data[:last_request_time]).to be_a(Float)
-        expect(fiber_data[:last_request_time]).to be > 0
-        expect(fiber_data[:response_ready]).to be true
+      # Check that each response succeeded
+      responses.each do |response|
+        expect(response).to be_a(ScraperUtils::NetworkResponse)
+        expect(fiber_ids).to include(response.fiber_id)
+        expect(response.result).to be_a(Mechanize::Page)
+        expect(response.error).to be_nil
+        expect(response.time_taken).to be > 0
+        expect(response.success?).to be true
       end
       
       # The total time should be less than the sum of individual request times
-      individual_times_sum = fibers.sum do |fiber|
-        fiber.instance_variable_get(:@data)[:last_request_time]
-      end
+      individual_times_sum = responses.sum(&:time_taken)
       
       expect(total_time).to be < individual_times_sum
     end
@@ -152,13 +137,9 @@ RSpec.describe ScraperUtils::ThreadScheduler do
   
   describe "#responses_pending?" do
     it "returns true when responses are pending" do
-      fiber = Fiber.new { Fiber.yield }
-      
-      # Queue a dummy request that will never complete
-      allow_any_instance_of(Mechanize).to receive(:get).and_return(nil)
-      
       # Add response directly to queue
-      executor.instance_variable_get(:@response_queue) << [fiber, "test", nil, 0.1]
+      executor.instance_variable_get(:@response_queue) << 
+        ScraperUtils::NetworkResponse.new(1234, "test")
       
       expect(executor.responses_pending?).to be true
     end
