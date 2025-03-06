@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-require 'scraper_utils/randomize_utils'
+require_relative "../spec_helper"
 
 RSpec.describe ScraperUtils::RandomizeUtils do
   describe '.randomize_order' do

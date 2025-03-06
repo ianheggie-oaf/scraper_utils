@@ -11,7 +11,7 @@ RSpec.describe ScraperUtils::FiberScheduler do
   describe ".delay" do
     context "when fiber scheduling is disabled" do
       it "falls back to regular sleep" do
-        described_class.disable!
+        described_class.enable = false
         expect(described_class).to receive(:sleep).with(0.1)
         described_class.delay(0.1)
       end
@@ -19,7 +19,7 @@ RSpec.describe ScraperUtils::FiberScheduler do
 
     context "when registry is empty" do
       it "falls back to regular sleep" do
-        described_class.enable!
+        described_class.enable = true
         expect(described_class).to receive(:sleep).with(0.1)
         described_class.delay(0.1)
       end
@@ -29,8 +29,8 @@ RSpec.describe ScraperUtils::FiberScheduler do
       it "falls back to regular sleep" do
         # Setup a fiber but don't let it complete
         test_fiber = Fiber.new { Fiber.yield }
-        described_class.registry << test_fiber
-        described_class.enable!
+        ScraperUtils::FiberScheduler::Registry.registry << test_fiber
+        described_class.enable = true
 
         # Mock current_fiber to be the same as our test_fiber
         allow(Fiber).to receive(:current).and_return(test_fiber)
@@ -42,7 +42,7 @@ RSpec.describe ScraperUtils::FiberScheduler do
 
     context "with multiple fibers" do
       it "switches to another fiber if available" do
-        described_class.enable!
+        described_class.enable = true
 
         # Array to track the execution sequence
         work_done = []
@@ -72,29 +72,8 @@ RSpec.describe ScraperUtils::FiberScheduler do
                                 ])
       end
 
-      it "handles wake-up times correctly" do
-        described_class.enable!
-
-        now = Time.now
-        allow(Time).to receive(:now).and_return(now)
-
-        # Create two fibers with different wake-up times
-        fiber1 = described_class.register_operation("auth1") { nil }
-        fiber2 = described_class.register_operation("auth2") { nil }
-
-        # Don't resume them yet
-
-        # Set resume times manually for testing
-        fiber1.instance_variable_set(:@resume_at, now + 0.5)
-        fiber2.instance_variable_set(:@resume_at, now + 0.2)
-
-        # The fiber with earlier wake-up time should be selected
-        earliest = described_class.send(:find_earliest_fiber)
-        expect(earliest.instance_variable_get(:@authority)).to eq("auth2")
-      end
-
       it "respects wake-up order for scheduling" do
-        described_class.enable!
+        described_class.enable = true
 
         # Track execution order
         work_done = []
@@ -124,11 +103,11 @@ RSpec.describe ScraperUtils::FiberScheduler do
         # Tasks should start in registration order, but finish in order of delay time
         expect(work_done).to eq([
                                   "Quick task started",
-                                  "Slow task started",
+                                  "Slow task started", 
                                   "Medium task started",
                                   "Quick task finished",
                                   "Medium task finished",
-                                  "Slow task finished"
+                                  "Slow task finished" 
                                 ])
       end
     end

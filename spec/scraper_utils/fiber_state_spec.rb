@@ -10,7 +10,7 @@ RSpec.describe ScraperUtils::FiberState do
 
   describe "#initialize" do
     it "sets the fiber_id and authority" do
-      expect(state.fiber_id).to eq(fiber_id)
+      expect(state.external_id).to eq(fiber_id)
       expect(state.authority).to eq(authority)
     end
 

@@ -4,7 +4,7 @@ module ScraperUtils
   # Encapsulates the state of a Fiber managed by FiberScheduler
   class FiberState
     # @return [Integer] The object_id of the fiber
-    attr_reader :fiber_id
+    attr_reader :external_id
     
     # @return [String] The authority name associated with this fiber
     attr_reader :authority
@@ -23,7 +23,7 @@ module ScraperUtils
     # @param fiber_id [Integer] The object_id of the fiber
     # @param authority [String] The authority name associated with this fiber
     def initialize(fiber_id, authority)
-      @fiber_id = fiber_id
+      @external_id = fiber_id
       @authority = authority
       @resume_at = nil
       @waiting_for_response = false
@@ -31,14 +31,14 @@ module ScraperUtils
       @error = nil
     end
     
-    # Check if the fiber is waiting for a network response
+    # Check if the fiber is waiting for a command response
     #
     # @return [Boolean] true if waiting, false otherwise
     def waiting_for_response?
       @waiting_for_response
     end
     
-    # Set whether the fiber is waiting for a network response
+    # Set whether the fiber is waiting for a command response
     #
     # @param value [Boolean] true if waiting, false otherwise
     # @return [Boolean] the new waiting status

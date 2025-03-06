@@ -2,8 +2,8 @@
 
 require "fiber"
 require_relative "fiber_state"
-require_relative "network_request"
-require_relative "network_response"
+require_relative "async_command"
+require_relative "async_response"
 require_relative "thread_scheduler"
 
 module ScraperUtils

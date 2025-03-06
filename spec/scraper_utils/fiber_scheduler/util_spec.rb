@@ -43,7 +43,7 @@ RSpec.describe ScraperUtils::FiberScheduler do
       # Set up some state
       described_class.register_operation("test") { Fiber.yield }
       described_class.exceptions["test"] = StandardError.new("Test error")
-      described_class.enable!
+      described_class.enable = true
 
       # Verify state is set
       expect(described_class.registry).not_to be_empty
@@ -78,19 +78,39 @@ RSpec.describe ScraperUtils::FiberScheduler do
     end
   end
 
-  describe ".find_earliest_fiber" do
-    it "returns a fiber without resume time if available" do
+  describe "find_ready_fiber (private method)" do
+    let(:executor) { ScraperUtils::FiberScheduler::Executor }
+    
+    it "finds a fiber with a response ready" do
       # Create fibers
       fiber1 = described_class.register_operation("auth1") { nil }
-      described_class.register_operation("auth2") { nil }
-      described_class.register_operation("auth3") { nil }
-
-      # Set resume time for the first fiber
-      fiber1.instance_variable_set(:@resume_at, Time.now + 0.5)
-
-      # The second fiber has no resume time, so it should be selected
-      earliest = described_class.send(:find_earliest_fiber)
-      expect(earliest.instance_variable_get(:@authority)).to eq("auth2")
+      fiber2 = described_class.register_operation("auth2") { nil }
+      
+      # Set response ready for fiber2
+      state = described_class.fiber_states[fiber2.object_id]
+      state.response = "Test response"
+      state.waiting_for_response = false
+      
+      ready_fiber = executor.send(:find_ready_fiber)
+      expect(ready_fiber).to eq(fiber2)
+    end
+    
+    it "finds the earliest fiber due for execution" do
+      now = Time.now
+      allow(Time).to receive(:now).and_return(now)
+      
+      # Create fibers with different resume times
+      fiber1 = described_class.register_operation("auth1") { nil }
+      fiber2 = described_class.register_operation("auth2") { nil }
+      
+      state1 = described_class.fiber_states[fiber1.object_id]
+      state2 = described_class.fiber_states[fiber2.object_id]
+      
+      state1.resume_at = now + 0.5
+      state2.resume_at = now + 0.2
+      
+      ready_fiber = executor.send(:find_ready_fiber)
+      expect(ready_fiber).to eq(fiber2)
     end
   end
 end

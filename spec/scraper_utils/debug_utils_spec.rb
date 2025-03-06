@@ -24,7 +24,7 @@ RSpec.describe ScraperUtils::DebugUtils do
   end
 
   describe ".debug_request" do
-    let(:method) { "GET" }
+    let(:method_name) { "GET" }
     let(:url) { "https://example.com" }
 
     context "when debug mode is on" do

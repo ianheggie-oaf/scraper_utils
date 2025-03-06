@@ -1,6 +1,6 @@
 # Parallel Request Processing
 
-The ScraperUtils library provides a mechanism for executing HTTP requests in parallel while still maintaining the interleaved fiber-based scheduling system.
+The ScraperUtils library provides a mechanism for executing operations in parallel using a thread pool, while still maintaining the interleaved fiber-based scheduling system.
 
 ## Overview
 
@@ -8,34 +8,34 @@ When scraping multiple authority websites, network requests often become the bot
 
 The `ThreadScheduler` optimizes this process by:
 
-1. Executing network requests in parallel using a thread pool
+1. Executing operations in parallel using a thread pool
 2. Allowing other fibers to continue working while waiting for responses
 3. Integrating seamlessly with the existing `FiberScheduler`
 
 ## Key Components
 
-### NetworkRequest
+### AsyncCommand
 
-A value object encapsulating a network request:
-- Fiber ID: Identifies which fiber made the request
-- Client: The HTTP client to use (typically a Mechanize instance)
-- Method: The operation to perform (e.g., :get, :post)
-- Args: Arguments for the method
+A value object encapsulating a command to be executed:
+- External ID: Any value suitable as a hash key (String, Symbol, Integer, Object) that identifies the command
+- Subject: The object to call the method on
+- Method: The method to call on the subject
+- Args: Arguments to pass to the method
 
-### NetworkResponse
+### AsyncResponse
 
 A value object encapsulating a response:
-- Fiber ID: Identifies which fiber should receive the response
+- External ID: Matches the ID from the original command
 - Result: The result of the operation
 - Error: Any error that occurred
 - Time Taken: Execution time in seconds
 
 ### ThreadScheduler
 
-Manages a pool of threads that execute network requests:
-- Processes requests from a queue
-- Returns responses to the FiberScheduler
-- Provides clear separation between network I/O and fiber scheduling
+Manages a pool of threads that execute commands:
+- Processes commands from a queue
+- Returns responses with matching external IDs
+- Provides clear separation between I/O and scheduling
 
 ## Usage
 
@@ -53,6 +53,27 @@ ScraperUtils::FiberScheduler.register_operation("authority_name") do
 end
 ```
 
+For testing purposes, you can also execute non-network operations:
+
+```ruby
+# Create a test object
+test_object = Object.new
+def test_object.sleep_test(duration)
+  sleep(duration)
+  "Completed after #{duration} seconds"
+end
+
+# Queue a sleep command
+command = ScraperUtils::AsyncCommand.new(
+  "test_id",
+  test_object,
+  :sleep_test,
+  [0.5]
+)
+
+thread_scheduler.queue_request(command)
+```
+
 ## Configuration
 
 The `ThreadScheduler` can be configured with different pool sizes:
@@ -68,14 +89,15 @@ ScraperUtils::FiberScheduler.instance_variable_set(
 
 ## Benefits
 
-1. **Improved Throughput**: Process multiple HTTP requests simultaneously
+1. **Improved Throughput**: Process multiple operations simultaneously
 2. **Reduced Total Runtime**: Make better use of wait time during network operations
 3. **Optimal Resource Usage**: Efficiently balance CPU and network operations
 4. **Better Geolocation Handling**: Distribute requests across proxies more efficiently
+5. **Testability**: Execute non-network operations for testing concurrency
 
 ## Debugging
 
-When debugging issues with parallel requests, use:
+When debugging issues with parallel operations, use:
 
 ```ruby
 # Set debug level to see request/response logging
@@ -83,9 +105,9 @@ export DEBUG=2
 ```
 
 The system will log:
-- When requests are queued
+- When commands are queued
 - When responses are received
-- How long each request took
+- How long each operation took
 - Any errors that occurred
 
 ## Implementation Details
@@ -93,9 +115,9 @@ The system will log:
 The integration between `FiberScheduler` and `ThreadScheduler` follows these principles:
 
 1. `FiberScheduler` maintains ownership of all fiber scheduling
-2. `ThreadScheduler` only knows about requests and responses
+2. `ThreadScheduler` only knows about commands and responses
 3. Communication happens via value objects with validation
 4. State is managed in dedicated `FiberState` objects
 5. Each component has a single responsibility
 
-This design provides a clean separation of concerns while enabling parallel network operations within the existing fiber scheduling framework.
+This design provides a clean separation of concerns while enabling parallel operations within the existing fiber scheduling framework.
