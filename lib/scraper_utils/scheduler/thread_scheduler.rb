@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require_relative "async_command"
-require_relative "async_response"
+require_relative "scheduler/and"
+require_relative "scheduler/async_response"
 
 module ScraperUtils
   # Executes commands in parallel using a thread pool

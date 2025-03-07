@@ -27,7 +27,7 @@ module ScraperUtils
 
       return unless DebugUtils.basic?
 
-      ScraperUtils::FiberScheduler.log(
+      ScraperUtils::Scheduler.log(
         "AdaptiveDelay initialized with delays between #{@min_delay} and #{@max_delay} seconds, " \
           "Max_load #{@max_load}% thus response multiplier: #{@response_multiplier.round(2)}x"
       )
@@ -57,7 +57,7 @@ module ScraperUtils
       delay = delay.clamp(@min_delay, @max_delay)
 
       if DebugUtils.basic?
-        ScraperUtils::FiberScheduler.log(
+        ScraperUtils::Scheduler.log(
           "Adaptive delay for #{uris_domain} updated to #{delay.round(2)}s (target: " \
             "#{@response_multiplier.round(1)}x response_time of #{response_time.round(2)}s)"
         )

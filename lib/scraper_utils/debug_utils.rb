@@ -61,7 +61,7 @@ module ScraperUtils
       return unless basic?
 
       puts
-      FiberScheduler.log "🔍 #{method.upcase} #{url}"
+      Scheduler.log "🔍 #{method.upcase} #{url}"
       puts "Parameters:", JSON.pretty_generate(parameters) if parameters
       puts "Headers:", JSON.pretty_generate(headers) if headers
       puts "Body:", JSON.pretty_generate(body) if body
@@ -77,7 +77,7 @@ module ScraperUtils
       return unless trace?
 
       puts
-      FiberScheduler.log "🔍 DEBUG: #{message}"
+      Scheduler.log "🔍 DEBUG: #{message}"
       puts "Current URL: #{page.uri}"
       puts "Page title: #{page.at('title').text.strip}" if page.at("title")
       puts "",
@@ -98,7 +98,7 @@ module ScraperUtils
       return unless trace?
 
       puts
-      FiberScheduler.log "🔍 DEBUG: #{message}"
+      Scheduler.log "🔍 DEBUG: #{message}"
       puts "Looking for selector: #{selector}"
       element = page.at(selector)
       if element

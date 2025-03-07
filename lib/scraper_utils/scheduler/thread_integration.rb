@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
 require "fiber"
-require_relative "../async_command"
-require_relative "../async_response"
-require_relative "../thread_scheduler"
+require_relative "../nc_command"
+require_relative "../nc_response"
+require_relative "../ead_scheduler"
 require_relative "registry"
 
 module ScraperUtils
-  module FiberScheduler
+  module Scheduler
     # Handles integration with ThreadScheduler for parallel execution
     module ThreadIntegration
       class << self
@@ -48,7 +48,7 @@ module ScraperUtils
           
           # Log the request if debugging enabled
           if DebugUtils.basic?
-            ScraperUtils::FiberScheduler.log "Queued #{method} async command to thread pool: #{args.first.inspect[0..60]}"
+            ScraperUtils::Scheduler.log "Queued #{method} async command to thread pool: #{args.first.inspect[0..60]}"
           end
           
           # Yield control back to the scheduler

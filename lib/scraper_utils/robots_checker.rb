@@ -15,7 +15,7 @@ module ScraperUtils
     def initialize(user_agent)
       @user_agent = extract_user_agent(user_agent).downcase
       if DebugUtils.basic?
-        ScraperUtils::FiberScheduler.log(
+        ScraperUtils::Scheduler.log(
           "Checking robots.txt for user agent prefix: #{@user_agent} (case insensitive)"
         )
       end
@@ -76,7 +76,7 @@ module ScraperUtils
         rules
       rescue StandardError => e
         if DebugUtils.basic?
-          ScraperUtils::FiberScheduler.log(
+          ScraperUtils::Scheduler.log(
             "WARNING: Failed to fetch robots.txt for #{domain}: #{e.message}"
           )
         end

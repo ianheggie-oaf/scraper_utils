@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 require "fiber"
-require_relative "../fiber_state"
+require_relative "../er_state"
 
 module ScraperUtils
-  module FiberScheduler
+  module Scheduler
     # Manages the registry of fibers and their associated state
     module Registry
       class << self
@@ -117,7 +117,7 @@ module ScraperUtils
           registry << fiber
 
           if DebugUtils.basic?
-            ScraperUtils::FiberScheduler.log "Registered #{authority} operation with fiber: #{fiber.object_id} for interleaving"
+            ScraperUtils::Scheduler.log "Registered #{authority} operation with fiber: #{fiber.object_id} for interleaving"
           end
           
           # Process immediately when testing

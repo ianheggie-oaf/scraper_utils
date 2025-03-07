@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../spec_helper"
-require_relative "../../lib/scraper_utils/fiber_state"
+require_relative "../../lib/scraper_utils/scheduler/fiber_state"
 
 RSpec.describe ScraperUtils::FiberState do
   let(:fiber_id) { 12345 }

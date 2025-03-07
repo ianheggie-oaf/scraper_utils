@@ -41,13 +41,13 @@ Manages a pool of threads that execute commands:
 
 ```ruby
 # In your authority scraper block
-ScraperUtils::FiberScheduler.register_operation("authority_name") do
+ScraperUtils::Scheduler.register_operation("authority_name") do
   # Instead of:
   # page = agent.get(url)
-  
+
   # Use:
-  page = ScraperUtils::FiberScheduler.queue_network_request(agent, :get, [url])
-  
+  page = ScraperUtils::Scheduler.queue_network_request(agent, :get, [url])
+
   # Process page as normal
   process_page(page)
 end
@@ -80,8 +80,8 @@ The `ThreadScheduler` can be configured with different pool sizes:
 
 ```ruby
 # Default is 20 threads
-ScraperUtils::FiberScheduler.thread_scheduler.shutdown
-ScraperUtils::FiberScheduler.instance_variable_set(
+ScraperUtils::Scheduler.thread_scheduler.shutdown
+ScraperUtils::Scheduler.instance_variable_set(
   :@thread_scheduler,
   ScraperUtils::ThreadScheduler.new(10) # Use 10 threads
 )

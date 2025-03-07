@@ -4,11 +4,11 @@ require_relative "../spec_helper"
 
 RSpec.describe "FiberScheduler and ThreadScheduler Integration" do
   before do
-    ScraperUtils::FiberScheduler.reset!
+    ScraperUtils::Scheduler.reset!
   end
 
   after do
-    ScraperUtils::FiberScheduler.thread_scheduler&.shutdown
+    ScraperUtils::Scheduler.thread_scheduler&.shutdown
   end
 
   describe "queue_async_command integration" do
@@ -49,18 +49,18 @@ RSpec.describe "FiberScheduler and ThreadScheduler Integration" do
       client2 = Mechanize.new
       
       # Register two operations with async commands
-      ScraperUtils::FiberScheduler.register_operation("authority1") do
+      ScraperUtils::Scheduler.register_operation("authority1") do
         begin
-          page = ScraperUtils::FiberScheduler.queue_async_command(client1, :get, [test_url1])
+          page = ScraperUtils::Scheduler.queue_async_command(client1, :get, [test_url1])
           results["authority1"] = page.body
         rescue StandardError => e
           errors["authority1"] = e
         end
       end
       
-      ScraperUtils::FiberScheduler.register_operation("authority2") do
+      ScraperUtils::Scheduler.register_operation("authority2") do
         begin
-          page = ScraperUtils::FiberScheduler.queue_async_command(client2, :get, [test_url2])
+          page = ScraperUtils::Scheduler.queue_async_command(client2, :get, [test_url2])
           results["authority2"] = page.body
         rescue StandardError => e
           errors["authority2"] = e
@@ -68,7 +68,7 @@ RSpec.describe "FiberScheduler and ThreadScheduler Integration" do
       end
       
       # Run all operations
-      ScraperUtils::FiberScheduler.run_all
+      ScraperUtils::Scheduler.run_all
       
       # Check results
       expect(results["authority1"]).to include("Test Page 1")
@@ -83,9 +83,9 @@ RSpec.describe "FiberScheduler and ThreadScheduler Integration" do
       client = Mechanize.new
       
       # Register operation with error-producing command
-      ScraperUtils::FiberScheduler.register_operation("error_authority") do
+      ScraperUtils::Scheduler.register_operation("error_authority") do
         begin
-          ScraperUtils::FiberScheduler.queue_async_command(client, :get, [test_url3])
+          ScraperUtils::Scheduler.queue_async_command(client, :get, [test_url3])
           :success
         rescue StandardError => e
           results["error"] = e.class.name
@@ -94,7 +94,7 @@ RSpec.describe "FiberScheduler and ThreadScheduler Integration" do
       end
       
       # Run the operation
-      ScraperUtils::FiberScheduler.run_all
+      ScraperUtils::Scheduler.run_all
       
       # Check error handling
       expect(results["error"]).to include("Mechanize::ResponseCode")
@@ -104,32 +104,32 @@ RSpec.describe "FiberScheduler and ThreadScheduler Integration" do
       sequence = []
       
       # Register operations with delays
-      ScraperUtils::FiberScheduler.register_operation("auth1") do
+      ScraperUtils::Scheduler.register_operation("auth1") do
         sequence << "auth1 start"
-        ScraperUtils::FiberScheduler.delay(0.05)
+        ScraperUtils::Scheduler.delay(0.05)
         sequence << "auth1 after delay"
         
         # Make async command
         client = Mechanize.new
-        ScraperUtils::FiberScheduler.queue_async_command(client, :get, [test_url1])
+        ScraperUtils::Scheduler.queue_async_command(client, :get, [test_url1])
         
         sequence << "auth1 after command"
       end
       
-      ScraperUtils::FiberScheduler.register_operation("auth2") do
+      ScraperUtils::Scheduler.register_operation("auth2") do
         sequence << "auth2 start"
-        ScraperUtils::FiberScheduler.delay(0.03)
+        ScraperUtils::Scheduler.delay(0.03)
         sequence << "auth2 after delay"
         
         # Make async command
         client = Mechanize.new
-        ScraperUtils::FiberScheduler.queue_async_command(client, :get, [test_url2])
+        ScraperUtils::Scheduler.queue_async_command(client, :get, [test_url2])
         
         sequence << "auth2 after command"
       end
       
       # Run operations
-      ScraperUtils::FiberScheduler.run_all
+      ScraperUtils::Scheduler.run_all
       
       # Verify proper interleaving
       expected_sequence = [

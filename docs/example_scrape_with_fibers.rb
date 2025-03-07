@@ -3,11 +3,11 @@
 # Example scrape method updated to use ScraperUtils::FibreScheduler
 
 def scrape(authorities, attempt)
-  ScraperUtils::FiberScheduler.reset!
+  ScraperUtils::Scheduler.reset!
   exceptions = {}
   authorities.each do |authority_label|
-    ScraperUtils::FiberScheduler.register_operation(authority_label) do
-      ScraperUtils::FiberScheduler.log(
+    ScraperUtils::Scheduler.register_operation(authority_label) do
+      ScraperUtils::Scheduler.log(
         "Collecting feed data for #{authority_label}, attempt: #{attempt}..."
       )
       ScraperUtils::DataQualityMonitor.start_authority(authority_label)
@@ -26,6 +26,6 @@ def scrape(authorities, attempt)
     end
     # end of register_operation block
   end
-  ScraperUtils::FiberScheduler.run_all
+  ScraperUtils::Scheduler.run_all
   exceptions
 end

@@ -10,7 +10,7 @@ module ScraperUtils
   # A utility module for interleaving multiple scraping operations
   # using fibers during connection delay periods. This allows efficient
   # use of wait time by switching between operations.
-  module FiberScheduler
+  module Scheduler
     # @return [Array<Fiber>] List of active fibers managed by the scheduler
     def self.registry
       @registry ||= []

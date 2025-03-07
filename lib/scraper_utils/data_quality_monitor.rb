@@ -41,7 +41,7 @@ module ScraperUtils
     def self.log_unprocessable_record(exception, record)
       authority_label = extract_authority(record)
       @stats[authority_label][:unprocessed] += 1
-      ScraperUtils::FiberScheduler.log "Erroneous record #{authority_label} - #{record&.fetch(
+      ScraperUtils::Scheduler.log "Erroneous record #{authority_label} - #{record&.fetch(
         'address', nil
       ) || record.inspect}: #{exception}"
       return unless @stats[authority_label][:unprocessed] > threshold(authority_label)
@@ -58,7 +58,7 @@ module ScraperUtils
     def self.log_saved_record(record)
       authority_label = extract_authority(record)
       @stats[authority_label][:saved] += 1
-      ScraperUtils::FiberScheduler.log "Saving record #{authority_label} - #{record['address']}"
+      ScraperUtils::Scheduler.log "Saving record #{authority_label} - #{record['address']}"
     end
   end
 end

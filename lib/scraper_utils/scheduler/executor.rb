@@ -5,7 +5,7 @@ require_relative "registry"
 require_relative "thread_integration"
 
 module ScraperUtils
-  module FiberScheduler
+  module Scheduler
     # Handles execution and scheduling of fibers
     module Executor
       class << self
@@ -19,7 +19,7 @@ module ScraperUtils
           # Fall back to plain sleep if scheduling not possible
           if !Registry.enabled? || !current_fiber || Registry.registry.size <= 1
             Registry.update_metrics(:time_slept, seconds)
-            ScraperUtils::FiberScheduler.log("Sleeping #{seconds.round(3)} seconds") if DebugUtils.basic?
+            ScraperUtils::Scheduler.log("Sleeping #{seconds.round(3)} seconds") if DebugUtils.basic?
             return sleep(seconds)
           end
 
@@ -49,7 +49,7 @@ module ScraperUtils
           remaining = resume_at - Time.now
           if remaining.positive?
             Registry.update_metrics(:time_slept, remaining)
-            ScraperUtils::FiberScheduler.log("Sleeping remaining #{remaining.round(3)} seconds") if DebugUtils.basic?
+            ScraperUtils::Scheduler.log("Sleeping remaining #{remaining.round(3)} seconds") if DebugUtils.basic?
             sleep(remaining)
           end || 0
         end
@@ -83,7 +83,7 @@ module ScraperUtils
                 # We save the return value but don't use it directly
                 fiber.resume
               else
-                ScraperUtils::FiberScheduler.log "WARNING: fiber is dead but did not remove itself from registry! #{fiber.object_id}"
+                ScraperUtils::Scheduler.log "WARNING: fiber is dead but did not remove itself from registry! #{fiber.object_id}"
                 Registry.registry.delete(fiber)
                 Registry.fiber_states.delete(fiber.object_id)
               end
@@ -101,7 +101,7 @@ module ScraperUtils
           end
           
           puts
-          ScraperUtils::FiberScheduler.log "FiberScheduler processed #{metrics[:resume_count]} calls to delay for #{count} registrations, " \
+          ScraperUtils::Scheduler.log "FiberScheduler processed #{metrics[:resume_count]} calls to delay for #{count} registrations, " \
               "sleeping #{percent_slept}% (#{metrics[:slept].round(1)}) of the " \
               "#{metrics[:requested].round(1)} seconds requested."
           puts
@@ -127,7 +127,7 @@ module ScraperUtils
             state.waiting_for_response = false
             
             if DebugUtils.basic?
-              ScraperUtils::FiberScheduler.log "Received response for fiber #{response.external_id} in #{response.time_taken.round(3)}s"
+              ScraperUtils::Scheduler.log "Received response for fiber #{response.external_id} in #{response.time_taken.round(3)}s"
             end
           end
           
@@ -166,10 +166,10 @@ module ScraperUtils
             state = Registry.state_for(fiber_id)
             
             if state.response_ready?
-              ScraperUtils::FiberScheduler.log "Resuming fiber #{fiber_id} with response ready"
+              ScraperUtils::Scheduler.log "Resuming fiber #{fiber_id} with response ready"
             elsif state.resume_at
               tardiness = now - state.resume_at
-              ScraperUtils::FiberScheduler.log "Resuming fiber #{fiber_id} #{tardiness > 0 ? "#{tardiness.round(3)}s late" : "on time"}"
+              ScraperUtils::Scheduler.log "Resuming fiber #{fiber_id} #{tardiness > 0 ? "#{tardiness.round(3)}s late" : "on time"}"
             end
           end
           

@@ -3,7 +3,7 @@
 require_relative "../../spec_helper"
 require_relative "../../../lib/scraper_utils/fiber_scheduler"
 
-RSpec.describe ScraperUtils::FiberScheduler do
+RSpec.describe ScraperUtils::Scheduler do
   before do
     described_class.reset!
   end
@@ -29,7 +29,7 @@ RSpec.describe ScraperUtils::FiberScheduler do
       it "falls back to regular sleep" do
         # Setup a fiber but don't let it complete
         test_fiber = Fiber.new { Fiber.yield }
-        ScraperUtils::FiberScheduler::Registry.registry << test_fiber
+        ScraperUtils::Scheduler::Registry.registry << test_fiber
         described_class.enable = true
 
         # Mock current_fiber to be the same as our test_fiber

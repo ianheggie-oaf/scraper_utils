@@ -3,7 +3,7 @@
 require_relative "../../spec_helper"
 require_relative "../../../lib/scraper_utils/fiber_scheduler"
 
-RSpec.describe ScraperUtils::FiberScheduler do
+RSpec.describe ScraperUtils::Scheduler do
   before do
     described_class.reset!
   end
@@ -79,7 +79,7 @@ RSpec.describe ScraperUtils::FiberScheduler do
   end
 
   describe "find_ready_fiber (private method)" do
-    let(:executor) { ScraperUtils::FiberScheduler::Executor }
+    let(:executor) { ScraperUtils::Scheduler::Executor }
     
     it "finds a fiber with a response ready" do
       # Create fibers
