@@ -40,14 +40,15 @@ mentioned above.
 
 ## Installation & Configuration
 
-Add to your [scraper's](https://www.planningalerts.org.au/how_to_write_a_scraper) Gemfile:
+Add to [your scraper's](https://www.planningalerts.org.au/how_to_write_a_scraper) Gemfile:
 
 ```ruby
 gem "scraperwiki", git: "https://github.com/openaustralia/scraperwiki-ruby.git", branch: "morph_defaults"
 gem 'scraper_utils'
 ```
 
-For detailed setup and configuration options, see the [Getting Started guide](docs/getting_started.md).
+For detailed setup and configuration options, 
+see {file:docs/getting_started.md Getting Started guide} 
 
 ## Key Features
 
@@ -57,20 +58,20 @@ For detailed setup and configuration options, see the [Getting Started guide](do
 - Automatic rate limiting based on server response times
 - Supports robots.txt and crawl-delay directives
 - Supports extra actions required to get to results page
-- [Learn more about Mechanize utilities](docs/mechanize_utilities.md)
+- {file:docs/mechanize_utilities.md Learn more about Mechanize utilities}
 
 ### Optimize Server Load
 
 - Intelligent date range selection (reduce server load by up to 60%)
 - Cycle utilities for rotating search parameters
-- [Learn more about reducing server load](docs/reducing_server_load.md)
+- {file:docs/reducing_server_load.md Learn more about reducing server load}
 
 ### Improve Scraper Efficiency
 
 - Interleave requests to optimize run time
-- [Learn more about interleaving requests](docs/interleaving_requests.md)
+- {file:docs/interleaving_requests.md Learn more about interleaving requests}
 - Randomize processing order for more natural request patterns
-- [Learn more about randomizing requests](docs/randomizing_requests.md)
+- {file:docs/randomizing_requests.md Learn more about randomizing requests}
 
 ### Error Handling & Quality Monitoring
 
@@ -82,11 +83,11 @@ For detailed setup and configuration options, see the [Getting Started guide](do
 
 - Enhanced debugging utilities
 - Simple logging with authority context
-- [Learn more about debugging](docs/debugging.md)
+- {file:docs/debugging.md Learn more about debugging}
 
 ## API Documentation
 
-Complete API documentation is available at [RubyDoc.info](https://rubydoc.info/gems/scraper_utils).
+Complete API documentation is available at [scraper_utils | RubyDoc.info](https://rubydoc.info/gems/scraper_utils).
 
 ## Ruby Versions
 
@@ -105,7 +106,7 @@ To install this gem onto your local machine, run `bundle exec rake install`.
 ## Contributing
 
 Bug reports and pull requests with working tests are welcome
-on [GitHub](https://github.com/ianheggie-oaf/scraper_utils).
+on [ianheggie-oaf/scraper_utils | GitHub](https://github.com/ianheggie-oaf/scraper_utils).
 
 ## License
 

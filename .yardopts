@@ -1,0 +1,5 @@
+--files docs/*.rb
+--files docs/*.md
+--files CHANGELOG.md
+--files LICENSE.txt
+--readme README.md
