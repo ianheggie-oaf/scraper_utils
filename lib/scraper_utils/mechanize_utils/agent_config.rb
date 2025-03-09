@@ -125,10 +125,10 @@ module ScraperUtils
         @australian_proxy &&= !ScraperUtils.australian_proxy.to_s.empty?
         if @australian_proxy
           uri = begin
-            URI.parse(ScraperUtils.australian_proxy.to_s)
-          rescue URI::InvalidURIError => e
-            raise URI::InvalidURIError, "Invalid proxy URL format: #{e.message}"
-          end
+                  URI.parse(ScraperUtils.australian_proxy.to_s)
+                rescue URI::InvalidURIError => e
+                  raise URI::InvalidURIError, "Invalid proxy URL format: #{e.message}"
+                end
           unless uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
             raise URI::InvalidURIError, "Proxy URL must start with http:// or https://"
           end
@@ -218,7 +218,7 @@ module ScraperUtils
         if DebugUtils.basic?
           ScraperUtils::LogUtils.log(
             "Post Connect uri: #{uri.inspect}, response: #{response.inspect} " \
-            "after #{response_time} seconds"
+              "after #{response_time} seconds"
           )
         end
 
@@ -227,12 +227,15 @@ module ScraperUtils
                 "URL is disallowed by robots.txt specific rules: #{uri}"
         end
 
-        delays = {
-          robot_txt: @robots_checker&.crawl_delay&.round(3),
-          max_load: @adaptive_delay&.next_delay(uri, response_time)&.round(3),
-          random: (@min_random ? (rand(@min_random..@max_random)**2).round(3) : nil)
-        }
-        @delay = delays.values.compact.max
+        @delay = @robots_checker&.crawl_delay&.round(3)
+        delays = { robot_txt: @delay }
+        unless @delay
+          delays = {
+            max_load: @adaptive_delay&.next_delay(uri, response_time)&.round(3),
+            random: (@min_random ? (rand(@min_random..@max_random) ** 2).round(3) : nil)
+          }
+          @delay = delays.values.compact.sum&.round(3)
+        end
         if @delay&.positive?
           $stderr.flush
           ScraperUtils::LogUtils.log("Delaying #{@delay} seconds, max of #{delays.inspect}") if ENV["DEBUG"]
