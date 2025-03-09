@@ -93,7 +93,7 @@ module ScraperUtils
         break if period.nil? || period >= max_period || !days.positive?
 
         if DebugUtils.trace?
-          Scheduler.log "DEBUG: #{period} day periods started #{(today - to_date).to_i} days in."
+          LogUtils.log "DEBUG: #{period} day periods started #{(today - to_date).to_i} days in."
         end
         period.times do |index|
           break unless days.positive?
@@ -125,7 +125,7 @@ module ScraperUtils
       end
       # remainder of range at max_period, whatever that is
       if days.positive? && ScraperUtils::DebugUtils.trace?
-        Scheduler.log "DEBUG: #{max_period} day periods started #{(today - to_date).to_i} days in."
+        LogUtils.log "DEBUG: #{max_period} day periods started #{(today - to_date).to_i} days in."
       end
       index = -1
       while days.positive?

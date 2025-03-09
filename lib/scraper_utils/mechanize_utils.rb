@@ -2,7 +2,10 @@
 
 require "mechanize"
 require "ipaddr"
-require "scraper_utils/mechanize_utils/agent_config"
+
+require_relative "mechanize_utils/adaptive_delay"
+require_relative "mechanize_utils/agent_config"
+require_relative "mechanize_utils/robots_checker"
 
 module ScraperUtils
   # Utilities for configuring and using Mechanize for web scraping

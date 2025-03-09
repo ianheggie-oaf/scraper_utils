@@ -6,7 +6,7 @@ The ScraperUtils library provides a mechanism for executing operations in parall
 
 When scraping multiple authority websites, network requests often become the bottleneck. While the `FiberScheduler` efficiently interleaves operations during delay periods, network requests still block a fiber until they complete.
 
-The `ThreadScheduler` optimizes this process by:
+The `ThreadPool` optimizes this process by:
 
 1. Executing operations in parallel using a thread pool
 2. Allowing other fibers to continue working while waiting for responses
@@ -30,7 +30,7 @@ A value object encapsulating a response:
 - Error: Any error that occurred
 - Time Taken: Execution time in seconds
 
-### ThreadScheduler
+### ThreadPool
 
 Manages a pool of threads that execute commands:
 - Processes commands from a queue
@@ -58,13 +58,14 @@ For testing purposes, you can also execute non-network operations:
 ```ruby
 # Create a test object
 test_object = Object.new
+
 def test_object.sleep_test(duration)
   sleep(duration)
   "Completed after #{duration} seconds"
 end
 
 # Queue a sleep command
-command = ScraperUtils::AsyncCommand.new(
+command = ScraperUtils::ProcessRequest.new(
   "test_id",
   test_object,
   :sleep_test,
@@ -76,14 +77,14 @@ thread_scheduler.queue_request(command)
 
 ## Configuration
 
-The `ThreadScheduler` can be configured with different pool sizes:
+The `ThreadPool` can be configured with different pool sizes:
 
 ```ruby
 # Default is 20 threads
 ScraperUtils::Scheduler.thread_scheduler.shutdown
 ScraperUtils::Scheduler.instance_variable_set(
   :@thread_scheduler,
-  ScraperUtils::ThreadScheduler.new(10) # Use 10 threads
+  ScraperUtils::ThreadPool.new(10) # Use 10 threads
 )
 ```
 
@@ -112,10 +113,10 @@ The system will log:
 
 ## Implementation Details
 
-The integration between `FiberScheduler` and `ThreadScheduler` follows these principles:
+The integration between `FiberScheduler` and `ThreadPool` follows these principles:
 
 1. `FiberScheduler` maintains ownership of all fiber scheduling
-2. `ThreadScheduler` only knows about commands and responses
+2. `ThreadPool` only knows about commands and responses
 3. Communication happens via value objects with validation
 4. State is managed in dedicated `FiberState` objects
 5. Each component has a single responsibility

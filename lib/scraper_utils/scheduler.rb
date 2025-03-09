@@ -1,35 +1,96 @@
 # frozen_string_literal: true
 
 require "fiber"
-require_relative "scheduler/fiber_state"
-require_relative "scheduler/async_command"
-require_relative "scheduler/async_response"
-require_relative "scheduler/thread_scheduler"
+
+require_relative "scheduler/fiber_registry"
+
+# require_relative "scheduler/thread_integration"
+require_relative "scheduler/thread_pool"
+
+# value objects
+require_relative "scheduler/fiber_operation"
+require_relative "scheduler/delay_request"
+require_relative "scheduler/process_request"
+require_relative "scheduler/thread_request"
+require_relative "scheduler/thread_response"
 
 module ScraperUtils
-  # A utility module to schedule work,
+  # A utility module to coordinate the scheduling of work,
   # * interleaving multiple operations (scraping of an authorities site)
   #   uses Fibers (cooperative concurrency) so your code and the libraries you call don't have to be thread safe
   # * Performing mechanize Network I/O in parallel using Threads
   #
-  # Thread safety Implementation:
+  # Thread safe Implementation:
+  # * Uses fibers for each authority with its own mechanize agent so operations don't need to be thread safe
+  # * Only Mechanize requests are run in threads in parallel whilst they wait for network response
   # * Uses message passing (using Queue's) to avoid having to share state between threads.
-  # * Each fiber for an authority has its own mechanize agent
   # * Execute request does not return till the response has been received from the thread,
-  #   so the mechanize agent shared with the thread isn't in use in the main code
-  # * Only one execute request per authority can be in the thread command queue at any one time
+  #   so the fiber's mechanize agent that is shared with the thread isn't used in multiple threads at once
+  # * Only one execute request per authority fiber can be in the thread request queue at any one time
   module Scheduler
-    # @!group Public Api
+    # @!group Main fiber / thread Api
+    class << self
+      # Controls whether Mechanize network requests are executed in parallel using threads
+      #
+      # @return [Boolean] true if network requests are executed in parallel using threads, false otherwise
+      # @note Defaults to true unless the MORPH_NOT_PARALLEL or MORPH_PROCESS_SEQUENTIALLY ENV variables are set
+      attr_accessor :parallel
+
+      # Reports if Mechanize network requests are executed in parallel using threads
+      # 
+      # @return (see #parallel)
+      alias parallel? parallel
+
+      # @return [Hash{Symbol => Exception}] exceptions by authority
+      attr_reader :exceptions
+
+      # Returns the run_operations timeout
+      # On timeout a message will be output
+      # The ruby process with exit with status 124 on timeout unless timeout <= 3600
+      #
+      # @return [Integer] Overall process timeout in seconds (default MORPH_TIMEOUT ENV value or 6 hours)
+      attr_accessor :timeout
+
+      # Private accessors for internal use
+
+      private
+
+      attr_reader :fiber_registry, :thread_pool, :delay_requested,
+                  :poll_sleep, :resume_count, :initial_resume_at, :reset
+    end
+
+    # Returns whether processing of multiple sites is interleaved using fibers
+    # @return [Boolean] true if processing is interleaved using fibers, false otherwise
+    # @note This value is determined by ScraperUtils::RandomizeUtils.random?
+    def self.interleaved?
+      ScraperUtils::RandomizeUtils.random?
+    end
+
+    # Resets the scheduler state. Use before retrying failed authorities.
+    def self.reset!
+      @fiber_registry&.shutdown
+      @thread_pool&.shutdown
+      @parallel = ENV['MORPH_NOT_PARALLEL'].to_s.empty? && self.interleaved?
+      @exceptions = {}
+      @delay_requested = 0.0
+      @poll_sleep = 0.0
+      @resume_count = 0
+      @initial_resume_at = Time.now
+      @fiber_registry = FiberRegistry.new if self.interleaved?
+      @thread_pool = ThreadPool.new if self.parallel?
+      @reset = true
+      @timeout = ENV.fetch('MORPH_TIMEOUT', 6 * 60 * 60).to_i
+      nil
+    end
+
+    # reset on class load
+    reset!
 
     # Registers a block to scrape for a specific authority
     #
-    # @param authority [String] the name of the authority being processed
+    # @param authority [Symbol] the name of the authority being processed
     # @yield to the block containing the scraping operation to be run in the fiber
-    # @return [Fiber] a fiber that calls the block
     def self.register_operation(authority, &block)
-      # Automatically enable fiber scheduling when operations are registered
-      enable!
-
       fiber = Fiber.new do
         begin
           block.call
@@ -38,379 +99,138 @@ module ScraperUtils
           exceptions[authority] = e
         ensure
           # Clean up when done regardless of success/failure
-          fiber_states.delete(Fiber.current.object_id)
-          registry.delete(Fiber.current)
+          fiber_registry.deregister(authority)
         end
       end
 
-      # Initialize state for this fiber
-      @initial_resume_at += 0.1
-      fiber_states[fiber.object_id] = FiberState.new(fiber.object_id, authority)
-      fiber_states[fiber.object_id].resume_at = @initial_resume_at
-
-      registry << fiber
+      operation = fiber_registry.register(fiber, authority)
 
       if DebugUtils.basic?
         log "Registered #{authority} operation with fiber: #{fiber.object_id} for interleaving"
       end
-
-      # Process immediately when testing
-      fiber.resume if ScraperUtils::RandomizeUtils.sequential?
-      fiber
+      unless interleaved?
+        log "Running #{authority} operation immediately as interleaving is disabled"
+        run_operations
+      end
+      # return operation for ease of testing
+      operation
     end
 
-    # Execute network requests in parallel
-    def self.execute_request(client, method, args)
-      # Current implementation uses thread pool
-      # Could change later without breaking user code
-    end
+    POLL_PERIOD = 0.01
 
-
-    # @!group Callbacks
-
-    # class << self
-    #   private
-    # end
-    # ====================================
-
-    # Checks if the current code is running within a registered fiber
-    #
-    # @return [Boolean] true if running in a registered fiber, false otherwise
-    def self.registered?
-      !Fiber.current.nil? && registry.include?(Fiber.current)
-    end
-
-    # Run all registered fibers until completion
+    # Run all registered operations until completion
     #
     # @return [Hash] Exceptions that occurred during execution
-    def self.run_all
-      count = registry.size
+    def self.run_operations
+      Timeout.timeout(timeout) do
+        count = fiber_registry.size
 
-      # Main scheduling loop
-      while registry.any?
-        # Check for any completed network requests first
-        process_thread_responses
+        # Main scheduling loop
+        until @fiber_registry.empty?
+          while (thread_response = @thread_pool.get_response)
+            process_thread_response(thread_response)
+          end
+          # Just in case somehow a dead operation occurs
+          @fiber_registry.remove_dead_operations
+          # Find the operation that ready to run with the earliest resume_at
+          operation = @fiber_registry.ready_to_run.first
 
-        # Find next fiber to run based on time or response readiness
-        fiber = find_ready_fiber
-
-        if fiber
-          if fiber.alive?
-            fiber_id = fiber.object_id
-            state = state_for(fiber_id)
-
+          if operation&.alive?
             @resume_count ||= 0
             @resume_count += 1
 
-            # Clear response before resuming
-            response = state.response
-            error = state.error
-            state.response = nil
-            state.error = nil
-
-            # Resume the fiber
-            values[state.authority] = fiber.resume
+            # Resume the fiber with the results of the last request
+            operation.resume
+          elsif operation
+            log "WARNING: operation is dead but did not remove itself from fiber_registry! #{operation.inspect}"
+            operations.delete(operation.object_id)
           else
-            log "WARNING: fiber is dead but did not remove itself from registry! #{fiber.object_id}"
-            registry.delete(fiber)
-            fiber_states.delete(fiber.object_id)
+            # No fibers ready to run, sleep a short time
+            sleep(POLL_PERIOD)
+            @poll_sleep += POLL_PERIOD
           end
-        else
-          # No fibers ready to run, sleep a short time
-          sleep(0.01)
         end
-      end
 
-      if @time_slept&.positive? && @delay_requested&.positive?
-        percent_slept = (100.0 * @time_slept / @delay_requested).round(1)
-      end
-      puts
-      log "FiberScheduler processed #{@resume_count} calls to delay for #{count} registrations, " \
-            "sleeping #{percent_slept}% (#{@time_slept&.round(1)}) of the " \
-            "#{@delay_requested&.round(1)} seconds requested."
-      puts
+        report_summary(count)
 
+        exceptions
+      end
+    rescue Timeout::Error
+      STDERR.puts "ERROR: Script exceeded maximum allowed runtime of #{(timeout / 3600.0).round(2)} hours!"
+      STDERR.puts "SQLite operations may have stalled. Forcibly terminating process..."
+      Process.exit!(124) if timeout >= 3600
       exceptions
     end
 
-    # Resets the scheduler state, and disables. Use before retrying failed authorities.
+    # @!group Fiber Api
+
+    # Execute Mechanize network request [usually] from within a fiber
     #
-    # @return [void]
-    def self.reset!
-      @registry = []
-      @fiber_states = {}
-      @exceptions = {}
-      @values = {}
-      @enabled = false
-      @delay_requested = 0.0
-      @time_slept = 0.0
-      @resume_count = 0
-      @initial_resume_at = Time.now - 60.0 # one minute ago
-      @thread_scheduler&.shutdown
-      @thread_scheduler = nil
-    end
-
-    # reset on class load
-
-    reset!
-
-
-    # ============================================================
-
-    # @return [Array<Fiber>] List of active fibers managed by the scheduler
-    def self.registry
-      @registry ||= {}
-    end
-
-    # Centralized storage for fiber state objects
-    # @return [Hash<Integer, FiberState>] States for all registered fibers indexed by fiber.object_id
-    def self.fiber_states
-      @fiber_states ||= {}
-    end
-
-    # Get state for a specific fiber
-    # @param fiber_id [Integer] The fiber's object_id
-    # @return [FiberState, nil] The state for the fiber or nil if not found
-    def self.state_for(fiber_id)
-      fiber_states[fiber_id]
-    end
-
-    # Get current fiber's state
-    # @return [FiberState, nil] The state for the current fiber or nil if not in a registered fiber
-    def self.current_state
-      return nil unless in_fiber?
-      state_for(Fiber.current.object_id)
-    end
-
-
-
-    # Gets the authority associated with the current fiber
-    #
-    # @return [String, nil] the authority name or nil if not in a fiber
-    def self.current_authority
-      state = current_state
-      state ? state.authority : nil
-    end
-
-    # Logs a message, automatically prefixing with authority name if in a fiber
-    #
-    # @param message [String] the message to log
-    # @return [void]
-    def self.log(message)
+    # @param client [MechanizeClient] client to be used to process request
+    # @param method_name [Symbol] method to be called on client
+    # @param args [Array] Arguments to be used with method call
+    # @return [Object] response from method call on client
+    def self.execute_request(client, method_name, args)
       authority = current_authority
-      $stderr.flush
-      if authority
-        puts "[#{authority}] #{message}"
-      else
-        puts message
-      end
-      $stdout.flush
-    end
+      return client.send(method_name, args) unless authority && @thread_pool
 
-    # Returns a hash of exceptions encountered during processing, indexed by authority
-    #
-    # @return [Hash{Symbol => Exception}] exceptions by authority
-    def self.exceptions
-      @exceptions ||= {}
-    end
-
-    # Returns a hash of the yielded / block values
-    #
-    # @return [Hash{Symbol => Any}] values by authority
-    def self.values
-      @values ||= {}
-    end
-
-    # Checks if fiber scheduling is currently enabled
-    #
-    # @return [Boolean] true if enabled, false otherwise
-    def self.enabled?
-      @enabled ||= false
-    end
-
-    # Enables fiber scheduling
-    #
-    # @return [void]
-    def self.enable!
-      reset! unless enabled?
-      @enabled = true
-    end
-
-    # Disables fiber scheduling
-    #
-    # @return [void]
-    def self.disable!
-      @enabled = false
-    end
-
-
-
-    # Gets the thread scheduler instance, creating it if needed
-    #
-    # @return [ThreadScheduler] the thread scheduler instance
-    def self.thread_scheduler
-      @thread_scheduler ||= ThreadScheduler.new
-    end
-
-    # Queue a network request to be executed by the thread scheduler
-    #
-    # @param client [Object] the client to use for the request
-    # @param method [Symbol] the method to call on the client
-    # @param args [Array] the arguments to pass to the method
-    # @return [Object] the result of the command
-    def self.queue_network_request(client, method, args)
-      return nil unless in_fiber?
-
-      fiber = Fiber.current
-      fiber_id = fiber.object_id
-      state = state_for(fiber_id)
-
-      # Mark fiber as waiting for response
-      state.waiting_for_response = true
-
-      # Create and queue the request
-      request = NetworkRequest.new(fiber_id, client, method, args)
-      thread_scheduler.queue_request(request)
-
-      # Log the request if debugging enabled
+      request = Scheduler::ProcessRequest.new(authority, client, method_name, args)
       if DebugUtils.basic?
-        log "Queued #{method} request to thread pool: #{args.first.inspect[0..60]}"
+        log "Calling Fiber.yield :process, #{request.inspect}"
       end
-
-      # Yield control back to the scheduler
-      Fiber.yield
-
-      # When resumed, return the response
-      if state.error
-        raise state.error
-      else
-        state.response
+      response = Fiber.yield :process, request
+      unless response.is_a?(ThreadResponse) && response.response_type == :processed
+        raise "Expected ThreadResponse.response_type == :processed, got: #{response.inspect}"
       end
+      response.result!
     end
 
     # Delays the current fiber and potentially runs another one
-    # Falls back to regular sleep if fiber scheduling is not enabled
+    # Falls back to regular sleep if fiber scheduling is not enabled, or we are not the main Thread
     #
     # @param seconds [Numeric] the number of seconds to delay
     # @return [Integer] return from sleep operation or 0
     def self.delay(seconds)
-      seconds = 0.0 unless seconds&.positive?
-      @delay_requested ||= 0.0
-      @delay_requested += seconds
+      authority = current_authority
+      return sleep(seconds) unless authority || Thread.current != Thread.main
 
-      current_fiber = Fiber.current
-
-      if !enabled? || !current_fiber || registry.size <= 1
-        @time_slept ||= 0.0
-        @time_slept += seconds
-        log("Sleeping #{seconds.round(3)} seconds") if DebugUtils.basic?
-        return sleep(seconds)
+      delay_till = Time.now + seconds
+      request = Scheduler::DelayRequest.new(authority, delay_till)
+      if DebugUtils.basic?
+        log "Calling Fiber.yield :delay, #{request.inspect}"
       end
-
-      now = Time.now
-      resume_at = now + seconds
-
-      # Set the resume time in the fiber's state
-      fiber_id = current_fiber.object_id
-      state = state_for(fiber_id)
-      state.resume_at = resume_at
-
-      # Don't resume at the same time as someone else,
-      # FIFO queue if seconds == 0
-      @other_resumes ||= []
-      @other_resumes = @other_resumes.delete_if { |t| t < now }
-      while @other_resumes.include?(resume_at) && resume_at
-        resume_at += 0.01
+      response = Fiber.yield :delay, request
+      unless response.is_a?(ThreadResponse) && response.response_type == :delayed
+        raise "Expected ThreadResponse.response_type == :delayed, got: #{response.inspect}"
       end
-
-      # Update with adjusted time if needed
-      state.resume_at = resume_at if resume_at != now + seconds
-
-      # Yield control back to the scheduler so another fiber can run
-      Fiber.yield
-
-      # When we get control back, check if we need to sleep more
-      remaining = resume_at - Time.now
-      if remaining.positive?
-        @time_slept ||= 0.0
-        @time_slept += remaining
-        log("Sleeping remaining #{remaining.round(3)} seconds") if DebugUtils.basic?
-        sleep(remaining)
-      end || 0
+      response.result!
     end
 
-
-
-
-
-    # Process any responses from the thread scheduler
+    # Gets the authority associated with the current fiber
     #
-    # @return [Boolean] true if any responses were processed
-    def self.process_thread_responses
-      return false unless @thread_scheduler
-
-      responses = @thread_scheduler.process_responses
-      return false if responses.empty?
-
-      responses.each do |response|
-        state = state_for(response.fiber_id)
-        next unless state
-
-        # Store the response and error in the fiber's state
-        state.response = response.result
-        state.error = response.error
-        state.waiting_for_response = false
-
-        if DebugUtils.basic?
-          log "Received response for fiber #{response.fiber_id} in #{response.time_taken.round(3)}s"
-        end
-      end
-
-      true
+    # @return [Symbol, nil] the authority name or nil if not in a fiber
+    def self.current_authority
+      @fiber_registry&.current_authority || @thread_pool&.current_authority
     end
 
-    # Find a fiber that's ready to run either because it has a response
-    # or because its resume time has arrived
-    #
-    # @return [Fiber, nil] a fiber ready to run or nil if none found
-    def self.find_ready_fiber
-      now = Time.now
-      ready_fiber = nil
-      earliest_time = nil
+    # @!group Internal Methods
 
-      # First check for any fiber with a response
-      registry.each do |fiber|
-        fiber_id = fiber.object_id
-        state = state_for(fiber_id)
-        next unless state
+    def self.process_thread_response(thread_response)
+      @thread_pool.process_thread_response(thread_response)
+    end
 
-        if state.response_ready?
-          ready_fiber = fiber
-          break
-        end
+    private
 
-        # Track earliest scheduled fiber for later use
-        resume_time = state.resume_at
-        if resume_time && (!earliest_time || resume_time < earliest_time)
-          earliest_time = resume_time
-          ready_fiber = fiber if now >= resume_time
-        end
+    def self.report_summary(count)
+      percent_polling = 0
+      if @poll_sleep&.positive? && @delay_requested&.positive?
+        percent_polling = (100.0 * @poll_sleep / @delay_requested).round(1)
       end
-
-      # If we found a fiber due for execution, log it
-      if ready_fiber && DebugUtils.verbose?
-        fiber_id = ready_fiber.object_id
-        state = state_for(fiber_id)
-
-        if state.response_ready?
-          log "Resuming fiber #{fiber_id} with response ready"
-        elsif state.resume_at
-          tardiness = now - state.resume_at
-          log "Resuming fiber #{fiber_id} #{tardiness > 0 ? "#{tardiness.round(3)}s late" : "on time"}"
-        end
-      end
-
-      ready_fiber
+      puts
+      LogUtils.log "FiberScheduler processed #{@resume_count} calls for #{count} registrations, " \
+                     "waiting #{percent_polling}% (#{@poll_sleep&.round(1)}) of the " \
+                     "#{@delay_requested&.round(1)} seconds requested."
+      puts
     end
   end
 end

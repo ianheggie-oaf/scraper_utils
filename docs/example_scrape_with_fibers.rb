@@ -7,7 +7,7 @@ def scrape(authorities, attempt)
   exceptions = {}
   authorities.each do |authority_label|
     ScraperUtils::Scheduler.register_operation(authority_label) do
-      ScraperUtils::Scheduler.log(
+      ScraperUtils::LogUtils.log(
         "Collecting feed data for #{authority_label}, attempt: #{attempt}..."
       )
       ScraperUtils::DataQualityMonitor.start_authority(authority_label)
@@ -26,6 +26,6 @@ def scrape(authorities, attempt)
     end
     # end of register_operation block
   end
-  ScraperUtils::Scheduler.run_all
+  ScraperUtils::Scheduler.run_operations
   exceptions
 end

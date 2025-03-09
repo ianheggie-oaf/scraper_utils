@@ -51,17 +51,17 @@ module ScraperUtils
 
     # Logs details of an HTTP request when debug mode is enabled
     #
-    # @param method [String] HTTP method (GET, POST, etc.)
+    # @param http_method [String] HTTP http_method (GET, POST, etc.)
     # @param url [String] Request URL
     # @param parameters [Hash, nil] Optional request parameters
     # @param headers [Hash, nil] Optional request headers
     # @param body [Hash, nil] Optional request body
     # @return [void]
-    def self.debug_request(method, url, parameters: nil, headers: nil, body: nil)
+    def self.debug_request(http_method, url, parameters: nil, headers: nil, body: nil)
       return unless basic?
 
       puts
-      Scheduler.log "🔍 #{method.upcase} #{url}"
+      LogUtils.log "🔍 #{http_method.upcase} #{url}"
       puts "Parameters:", JSON.pretty_generate(parameters) if parameters
       puts "Headers:", JSON.pretty_generate(headers) if headers
       puts "Body:", JSON.pretty_generate(body) if body
@@ -77,7 +77,7 @@ module ScraperUtils
       return unless trace?
 
       puts
-      Scheduler.log "🔍 DEBUG: #{message}"
+      LogUtils.log "🔍 DEBUG: #{message}"
       puts "Current URL: #{page.uri}"
       puts "Page title: #{page.at('title').text.strip}" if page.at("title")
       puts "",
@@ -98,7 +98,7 @@ module ScraperUtils
       return unless trace?
 
       puts
-      Scheduler.log "🔍 DEBUG: #{message}"
+      LogUtils.log "🔍 DEBUG: #{message}"
       puts "Looking for selector: #{selector}"
       element = page.at(selector)
       if element

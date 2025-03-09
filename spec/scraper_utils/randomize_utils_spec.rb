@@ -6,17 +6,17 @@ RSpec.describe ScraperUtils::RandomizeUtils do
   describe '.randomize_order' do
     let(:input_collection) { [1, 2, 3, 4, 5] }
 
-    context 'when in sequential mode' do
-      before { described_class.sequential = true }
-      after { described_class.instance_variable_set(:@sequential, nil) }
+    context 'when not in random mode' do
+      before { described_class.random = false }
+      after { described_class.reset! }
 
       it 'returns the original collection' do
         expect(described_class.randomize_order(input_collection)).to eq(input_collection)
       end
     end
 
-    context 'when not in sequential mode' do
-      before { described_class.sequential = false }
+    context 'when in random mode' do
+      before { described_class.random = true }
 
       it 'returns a randomized collection' do
         randomized = described_class.randomize_order(input_collection)
@@ -32,41 +32,39 @@ RSpec.describe ScraperUtils::RandomizeUtils do
     end
   end
 
-  describe '.sequential?' do
-    context 'when MORPH_PROCESS_SEQUENTIALLY is set' do
+  describe '.random?' do
+    context 'when MORPH_NOT_RANDOM is set' do
       before do
-        described_class.sequential = nil
-        ENV['MORPH_PROCESS_SEQUENTIALLY'] = 'true'
+        ENV['MORPH_NOT_RANDOM'] = '1'
+        described_class.reset!
       end
-      after { ENV.delete('MORPH_PROCESS_SEQUENTIALLY') }
+      after { ENV.delete('MORPH_NOT_RANDOM') }
 
-      it 'returns true' do
-        described_class.sequential = nil
-        expect(described_class.sequential?).to be(true)
+      it 'returns false' do
+        expect(described_class.random?).to be(false)
       end
     end
 
-    context 'when MORPH_PROCESS_SEQUENTIALLY is not set' do
+    context 'when MORPH_NOT_RANDOM is not set' do
       before do
-        described_class.sequential = nil
-        ENV.delete('MORPH_PROCESS_SEQUENTIALLY')
+        ENV.delete('MORPH_NOT_RANDOM')
+        described_class.reset!
       end
 
-      it 'returns false' do
-        described_class.sequential = nil
-        expect(described_class.sequential?).to be(false)
+      it 'returns true' do
+        expect(described_class.random?).to be(true)
       end
     end
   end
 
-  describe '.sequential=' do
-    after { described_class.sequential = nil }
-    it 'allows manually setting sequential mode' do
-      described_class.sequential = true
-      expect(described_class.sequential?).to be(true)
+  describe '.random=' do
+    after { described_class.reset! }
+    it 'allows manually setting random mode' do
+      described_class.random = false
+      expect(described_class.random?).to be(false)
 
-      described_class.sequential = false
-      expect(described_class.sequential?).to be(false)
+      described_class.random = true
+      expect(described_class.random?).to be(true)
     end
   end
 end

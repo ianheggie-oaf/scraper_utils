@@ -197,7 +197,7 @@ module ScraperUtils
         display_args << "max_load=#{@max_load}%" if @max_load
         display_args << "disable_ssl_certificate_check" if @disable_ssl_certificate_check
         display_args << "default args" if display_args.empty?
-        ScraperUtils::Scheduler.log(
+        ScraperUtils::LogUtils.log(
           "Configuring Mechanize agent with #{display_args.join(', ')}"
         )
       end
@@ -206,7 +206,7 @@ module ScraperUtils
         @connection_started_at = Time.now
         return unless DebugUtils.verbose?
 
-        ScraperUtils::Scheduler.log(
+        ScraperUtils::LogUtils.log(
           "Pre Connect request: #{request.inspect} at #{@connection_started_at}"
         )
       end
@@ -216,7 +216,7 @@ module ScraperUtils
 
         response_time = Time.now - @connection_started_at
         if DebugUtils.basic?
-          ScraperUtils::Scheduler.log(
+          ScraperUtils::LogUtils.log(
             "Post Connect uri: #{uri.inspect}, response: #{response.inspect} " \
             "after #{response_time} seconds"
           )
@@ -235,7 +235,7 @@ module ScraperUtils
         @delay = delays.values.compact.max
         if @delay&.positive?
           $stderr.flush
-          ScraperUtils::Scheduler.log("Delaying #{@delay} seconds, max of #{delays.inspect}") if ENV["DEBUG"]
+          ScraperUtils::LogUtils.log("Delaying #{@delay} seconds, max of #{delays.inspect}") if ENV["DEBUG"]
           $stdout.flush
           ScraperUtils::Scheduler.delay(@delay)
         end
@@ -246,14 +246,14 @@ module ScraperUtils
       def verify_proxy_works(agent)
         $stderr.flush
         $stdout.flush
-        Scheduler.log "Checking proxy works..."
+        LogUtils.log "Checking proxy works..."
         my_ip = MechanizeUtils.public_ip(agent)
         begin
           IPAddr.new(my_ip)
         rescue IPAddr::InvalidAddressError => e
           raise "Invalid public IP address returned by proxy check: #{my_ip.inspect}: #{e}"
         end
-        ScraperUtils::Scheduler.log "Proxy is using IP address: #{my_ip.inspect}"
+        ScraperUtils::LogUtils.log "Proxy is using IP address: #{my_ip.inspect}"
         my_headers = MechanizeUtils.public_headers(agent)
         begin
           # Check response is JSON just to be safe!

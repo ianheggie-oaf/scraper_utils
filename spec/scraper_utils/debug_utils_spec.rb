@@ -24,7 +24,7 @@ RSpec.describe ScraperUtils::DebugUtils do
   end
 
   describe ".debug_request" do
-    let(:method_name) { "GET" }
+    let(:http_method) { "GET" }
     let(:url) { "https://example.com" }
 
     context "when debug mode is on" do
@@ -33,21 +33,21 @@ RSpec.describe ScraperUtils::DebugUtils do
       it "prints request details" do
         expect do
           # noinspection RubyMismatchedArgumentType
-          described_class.debug_request(method, url, parameters: { key: "value" })
+          described_class.debug_request(http_method, url, parameters: { key: "value" })
         end.to output(%r{GET https://example.com}).to_stdout
       end
 
       it "prints parameters" do
         expect do
           # noinspection RubyMismatchedArgumentType
-          described_class.debug_request(method, url, parameters: { key: "value" })
+          described_class.debug_request(http_method, url, parameters: { key: "value" })
         end.to output(/Parameters:/).to_stdout
       end
 
       it "prints headers" do
         expect do
           # noinspection RubyMismatchedArgumentType
-          described_class.debug_request(method, url,
+          described_class.debug_request(http_method, url,
                                         headers: { "Content-Type": "application/json" })
         end.to output(/Headers:/).to_stdout
       end
@@ -55,7 +55,7 @@ RSpec.describe ScraperUtils::DebugUtils do
       it "prints body" do
         expect do
           # noinspection RubyMismatchedArgumentType
-          described_class.debug_request(method, url, body: { data: "test" })
+          described_class.debug_request(http_method, url, body: { data: "test" })
         end.to output(/Body:/).to_stdout
       end
     end
@@ -66,7 +66,7 @@ RSpec.describe ScraperUtils::DebugUtils do
       it "does not print anything" do
         expect do
           # noinspection RubyMismatchedArgumentType
-          described_class.debug_request(method, url)
+          described_class.debug_request(http_method, url)
         end.not_to output.to_stdout
       end
     end
