@@ -7,6 +7,7 @@ RSpec.describe ScraperUtils::Scheduler::OperationRegistry do
   let(:registry) { described_class.new }
   let(:authority1) { :authority1 }
   let(:authority2) { :authority2 }
+  let(:authority3) { :authority3 }
   let(:fiber1) { Fiber.new { :fiber1 } }
   let(:fiber2) { Fiber.new { :fiber2 } }
 
@@ -181,15 +182,15 @@ RSpec.describe ScraperUtils::Scheduler::OperationRegistry do
   end
 
   describe "#can_resume" do
-    let(:operation1) { double("OperationWorker", can_resume?: true, resume_at: Time.now + 1) }
-    let(:operation2) { double("OperationWorker", can_resume?: true, resume_at: Time.now) }
-    let(:operation3) { double("OperationWorker", can_resume?: false, resume_at: Time.now - 1) }
+    let(:operation1) { double("OperationWorker1", can_resume?: true, resume_at: Time.now + 1) }
+    let(:operation2) { double("OperationWorker2", can_resume?: true, resume_at: Time.now) }
+    let(:operation3) { double("OperationWorker3", can_resume?: false, resume_at: Time.now - 1) }
     
     before do
       registry.instance_variable_set(:@operations, { 
         authority1 => operation1,
         authority2 => operation2,
-        authority2 => operation3
+        authority3 => operation3
       })
     end
     

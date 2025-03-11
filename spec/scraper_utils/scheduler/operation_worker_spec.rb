@@ -203,7 +203,7 @@ RSpec.describe ScraperUtils::Scheduler::OperationWorker do
     it "raises error if fiber is not alive" do
       allow(worker).to receive(:alive?).and_return(false)
       
-      expect { worker.resume }.to raise_error(Thread::ClosedQueueError)
+      expect { worker.resume }.to raise_error(ClosedQueueError)
     end
     
     it "raises error if no response is available" do
@@ -219,16 +219,19 @@ RSpec.describe ScraperUtils::Scheduler::OperationWorker do
     end
     
     it "resumes fiber with response and returns request" do
+      test_request = ScraperUtils::Scheduler::ThreadRequest.new(:test_authority) {
+        :test_request
+      }
       test_fiber = Fiber.new { |response|
         expect(response).to eq(:test_response)
-        :test_request
+        test_request
       }
       worker = described_class.new(test_fiber, authority, response_queue)
       worker.instance_variable_set(:@response, :test_response)
       
       request = worker.resume
       
-      expect(request).to eq(:test_request)
+      expect(request).to eq(test_request)
     end
     
     it "submits returned request when non-nil" do

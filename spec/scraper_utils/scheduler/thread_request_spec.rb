@@ -50,7 +50,7 @@ RSpec.describe ScraperUtils::Scheduler::ThreadRequest do
       expect(result.authority).to eq(authority)
       expect(result.result).to be_nil
       expect(result.error).to eq(test_error)
-      expect(result.time_taken).to eq(0.7)
+      expect(result.time_taken).to be_within(0.001).of(0.7)
     end
   end
 end
