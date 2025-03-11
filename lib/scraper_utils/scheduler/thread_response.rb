@@ -46,6 +46,14 @@ module ScraperUtils
         return @result if success?
         raise @error
       end
+      
+      # Provide a readable inspection of the response
+      # @return [String] Readable representation
+      def inspect
+        status = success? ? "success" : "FAILED"
+        error_info = success? ? "" : " - #{error.class}: #{error.message}"
+        "#<#{self.class} authority=#{authority} #{status}#{error_info} time=#{time_taken}>"
+      end
     end
   end
 end
