@@ -4,65 +4,69 @@ require_relative "../../spec_helper"
 
 RSpec.describe ScraperUtils::Scheduler::ThreadResponse do
   let(:authority) { :test_authority }
-  let(:result) { "test result" }
+  let(:result) { double("Result") }
   let(:error) { nil }
   let(:time_taken) { 0.5 }
-  let(:response) { described_class.new(authority, result, error, time_taken) }
+  let(:thread_request) { instance_double(ScraperUtils::Scheduler::ThreadRequest, authority: authority) }
+  let(:response) { described_class.new(thread_request, result, error, time_taken) }
 
   describe "#initialize" do
-    it "sets all attributes" do
+    it "sets required attributes" do
       expect(response.authority).to eq(authority)
       expect(response.result).to eq(result)
-      expect(response.error).to be_nil
-      expect(response.time_taken).to eq(time_taken)
-      expect(response.delay_till).to be_nil
-    end
-    
-    it "sets authority to nil when not provided" do
-      response = described_class.new(nil, result, error, time_taken)
-      expect(response.authority).to be_nil
-    end
-    
-    it "works with error argument" do
-      error = StandardError.new("Test error")
-      response = described_class.new(authority, nil, error, time_taken)
-      
       expect(response.error).to eq(error)
-    end
-  end
-
-  describe "#success?" do
-    it "returns true when error is nil" do
-      expect(response.success?).to be true
+      expect(response.time_taken).to be_within(0.0001).of(time_taken)
     end
     
-    it "returns false when error is present" do
-      error = StandardError.new("Test error")
-      response = described_class.new(authority, nil, error, time_taken)
-      
-      expect(response.success?).to be false
-    end
-  end
-
-  describe "#result!" do
-    it "returns result when successful" do
-      expect(response.result!).to eq(result)
+    it "calculates delay_till based on time_taken" do
+      # Default behavior is to delay for double the time taken
+      expect(response.delay_till).to be_within(0.0001).of(Time.now + 2 * time_taken)
     end
     
-    it "raises error when not successful" do
-      error = StandardError.new("Test error")
-      response = described_class.new(authority, nil, error, time_taken)
+    it "sets completed to true" do
+      expect(response.completed?).to be true
+    end
+    
+    it "sets failed to false when no error" do
+      expect(response.failed?).to be false
+    end
+    
+    it "sets failed to true when error present" do
+      response_with_error = described_class.new(
+        thread_request, nil, RuntimeError.new("Test error"), time_taken
+      )
       
-      expect { response.result! }.to raise_error(StandardError, "Test error")
+      expect(response_with_error.failed?).to be true
     end
   end
-
-  describe "delay_till attribute" do
-    it "can be set after initialization" do
-      delay_time = Time.now + 5
-      response.delay_till = delay_time
+  
+  describe "#delay_till=" do
+    it "allows custom delay setting" do
+      custom_time = Time.now + 10
+      response.delay_till = custom_time
       
-      expect(response.delay_till).to eq(delay_time)
+      expect(response.delay_till).to eq(custom_time)
+    end
+  end
+  
+  describe "#inspect" do
+    it "includes key attributes in string representation" do
+      inspect_output = response.inspect
+      
+      expect(inspect_output).to include(authority.to_s)
+      expect(inspect_output).to include("completed")
+      expect(inspect_output).to include(time_taken.to_s)
+    end
+    
+    it "indicates failure when error present" do
+      response_with_error = described_class.new(
+        thread_request, nil, RuntimeError.new("Test error"), time_taken
+      )
+      
+      inspect_output = response_with_error.inspect
+      
+      expect(inspect_output).to include("FAILED")
+      expect(inspect_output).to include("RuntimeError")
     end
   end
 end

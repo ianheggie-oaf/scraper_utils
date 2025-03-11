@@ -4,53 +4,52 @@ require_relative "../../spec_helper"
 
 RSpec.describe ScraperUtils::Scheduler::ThreadRequest do
   let(:authority) { :test_authority }
-  let(:request) { described_class.new(authority) }
+  let(:processing_block) { -> { :result } }
+  let(:request) { described_class.new(authority, &processing_block) }
 
   describe "#initialize" do
-    it "sets authority attribute" do
+    it "sets required attributes" do
       expect(request.authority).to eq(authority)
+      expect(request.instance_variable_get(:@block)).to eq(processing_block)
     end
     
-    it "works with nil authority" do
-      request = described_class.new(nil)
-      expect(request.authority).to be_nil
+    it "raises error if authority is missing" do
+      expect { 
+        described_class.new(nil, &processing_block) 
+      }.to raise_error(ArgumentError, /Authority must be provided/)
+    end
+    
+    it "raises error if block is missing" do
+      expect { 
+        described_class.new(authority) 
+      }.to raise_error(ArgumentError, /Block must be provided/)
     end
   end
-
+  
   describe "#execute" do
-    it "raises NotImplementedError" do
-      expect { request.execute }.to raise_error(NotImplementedError, /Implement in subclass/)
-    end
-  end
-
-  describe "#execute_block" do
-    it "captures successful result with timing" do
-      allow(Time).to receive(:now).and_return(100, 100.5) # Mock 0.5s execution time
+    it "calls block and returns ThreadResponse with result" do
+      start_time = Time.now
+      allow(Time).to receive(:now).and_return(start_time, start_time + 0.7)
       
-      result = request.execute_block do
-        "success result"
-      end
+      response = request.execute
       
-      expect(result).to be_a(ScraperUtils::Scheduler::ThreadResponse)
-      expect(result.authority).to eq(authority)
-      expect(result.result).to eq("success result")
-      expect(result.error).to be_nil
-      expect(result.time_taken).to eq(0.5)
+      expect(response).to be_a(ScraperUtils::Scheduler::ThreadResponse)
+      expect(response.authority).to eq(authority)
+      expect(response.result).to eq(:result)
+      expect(response.error).to be_nil
+      expect(response.time_taken).to be_within(0.0001).of(0.7)
     end
     
-    it "captures error with timing" do
-      test_error = StandardError.new("Test error")
-      allow(Time).to receive(:now).and_return(100, 100.7) # Mock 0.7s execution time
+    it "captures exceptions during block execution" do
+      test_error = RuntimeError.new("Test error")
+      error_block = -> { raise test_error }
+      error_request = described_class.new(authority, &error_block)
       
-      result = request.execute_block do
-        raise test_error
-      end
+      response = error_request.execute
       
-      expect(result).to be_a(ScraperUtils::Scheduler::ThreadResponse)
-      expect(result.authority).to eq(authority)
-      expect(result.result).to be_nil
-      expect(result.error).to eq(test_error)
-      expect(result.time_taken).to be_within(0.001).of(0.7)
+      expect(response.result).to be_nil
+      expect(response.error).to eq(test_error)
+      expect(response.failed?).to be true
     end
   end
 end
