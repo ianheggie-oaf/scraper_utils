@@ -54,6 +54,8 @@ module ScraperUtils
   # * Only one execute request per authority fiber can be in the thread request queue at any one time
   module Scheduler
     # @!group Main fiber / thread Api
+    # These Methods should only be called from main (initial) fiber
+
     class << self
       # Controls if network I/O requests will be processed in parallel using threads
       #
@@ -200,6 +202,8 @@ module ScraperUtils
 
     # ===========================================================
     # @!group Fiber Api
+    # These Methods should be called from the worker's own fiber
+    # but handle being called from the main fiber (eg when MORPH_MAX_WORKERS=0)
 
     # Execute Mechanize network request in parallel using the fiber's thread
     # This allows multiple network I/O requests to be waiting for a response in parallel
@@ -235,6 +239,9 @@ module ScraperUtils
     def self.current_authority
       current_operation&.authority
     end
+
+    # @!endgroup
+    # ===========================================================
 
     private
 
