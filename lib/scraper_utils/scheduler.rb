@@ -17,9 +17,9 @@ module ScraperUtils
   # * Performing mechanize Network I/O in parallel using Threads
   #
   # Process flow
-  # 0. operation_workers start with response = ThreadResponse.resume_state = CONTINUE_STATE
+  # 0. operation_workers start with response = true as the first resume passes args to block and response is ignored
   # 1. resumes fiber of operation_worker with the last response when `Time.now` >= resume_at
-  # 2. worker fiber
+  # 2. worker fiber calls {Scheduler.execute_request}
   #    a. sets resume_at based on calculated delay and waiting_for_response
   #    b. pushes request onto local request queue if parallel, otherwise
   #       executes request immediately in fiber and passes response to save_thread_response
@@ -120,21 +120,20 @@ module ScraperUtils
     # @param authority [Symbol] the name of the authority being processed
     # @yield to the block containing the scraping operation to be run in the fiber
     def self.register_operation(authority, &block)
-      fiber = Fiber.new do |_, terminate|
+      fiber = Fiber.new do |continue|
         begin
-          raise "Terminated fiber for #{authority} before block run" if terminate
+          raise "Terminated fiber for #{authority} before block run" unless continue
 
           block.call
-          # no request
-          nil
         rescue StandardError => e
           # Store exception against the authority
           exceptions[authority] = e
-          nil
         ensure
           # Clean up when done regardless of success/failure
           operation_registry&.deregister(authority)
         end
+        # no further requests
+        nil
       end
 
       operation = operation_registry&.register(fiber, authority)
@@ -161,7 +160,8 @@ module ScraperUtils
         until @operation_registry.empty?
           # Save results from threads in operation state so more operation fibers can be resumed
           while (thread_response = get_response)
-            @operation_registry.save_thread_response(thread_response)
+            operation = @operation_registry.find(thread_response.authority)
+            operation&.save_thread_response(thread_response)
           end
 
           delay = Constants::POLL_PERIOD
@@ -201,35 +201,39 @@ module ScraperUtils
     # ===========================================================
     # @!group Fiber Api
 
-    # Execute Mechanize network request [usually] from within a fiber
+    # Execute Mechanize network request in parallel using the fiber's thread
+    # This allows multiple network I/O requests to be waiting for a response in parallel
+    # whilst responses that have arrived can be processed by their fibers.
+    #
+    # @example Replace this code in your scraper
+    #   page = agent.get(url_period(url, period, webguest))
+    #
+    # @example With this code
+    #   page = ScraperUtils::Scheduler.execute_request(agent, :get, [url_period(url, period, webguest)])
     #
     # @param client [MechanizeClient] client to be used to process request
     # @param method_name [Symbol] method to be called on client
     # @param args [Array] Arguments to be used with method call
     # @return [Object] response from method call on client
     def self.execute_request(client, method_name, args)
-      authority = current_authority
+      operation = current_operation
       # execute immediately if not in a worker fiber
-      return client.send(method_name, args) unless authority
+      return client.send(method_name, args) unless operation
 
-      request = Scheduler::ProcessRequest.new(authority, client, method_name, args)
-      if DebugUtils.basic?
-        log "Calling Fiber.yield #{request.inspect}"
-      end
-      response = Fiber.yield true
+      request = Scheduler::ProcessRequest.new(operation.authority, client, method_name, args)
+      log "Submitting request #{request.inspect}" if DebugUtils.basic?
+      response = operation.submit_request(request)
       unless response.is_a?(ThreadResponse)
         raise "Expected ThreadResponse, got: #{response.inspect}"
       end
       response.result!
     end
 
-    # Records
-
     # Gets the authority associated with the current fiber or thread
     #
     # @return [Symbol, nil] the authority name or nil if not in a fiber
     def self.current_authority
-      @operation_registry&.current_authority
+      current_operation&.authority
     end
 
     private
@@ -241,6 +245,10 @@ module ScraperUtils
       return nil if non_block && @response_queue.empty?
 
       @response_queue.pop(non_block)
+    end
+
+    def self.current_operation
+      @operation_registry&.find
     end
 
     def self.report_summary(count)

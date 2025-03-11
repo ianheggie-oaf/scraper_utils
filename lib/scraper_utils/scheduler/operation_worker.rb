@@ -51,6 +51,7 @@ module ScraperUtils
         if DebugUtils.basic?
           log "Received #{response&.class&.name || 'nil response'} from thread for fiber #{authority} in #{response&.time_taken&.round(3)}s"
         end
+        response
       end
 
       # Shutdown fiber from main or worker fiber
@@ -66,8 +67,9 @@ module ScraperUtils
         @resume_at = self.class.next_resume_at
         @waiting_for_response = false
         if @fiber.alive? && @fiber.object_id != Fiber.current.object_id
-          # Resume fiber to run and thus clean up its resources
-          @fiber.resume(nil, true)
+          # Trigger other fiber to raise an error and thus shutdown
+          @fiber.resume(nil)
+          # throw away response - we don't care since shutdown is a last resort before exiting
         end
       end
 
@@ -146,11 +148,12 @@ module ScraperUtils
         @waiting_for_response = true
         if @request_queue
           @request_queue&.push request
-          Fiber.yield true
+          response = Fiber.yield true
+          raise "Terminated fiber for #{authority} as requested" unless response
         else
-          save_thread_response request.execute
+          response = save_thread_response request.execute
         end
-        nil
+        response
       end
 
       private

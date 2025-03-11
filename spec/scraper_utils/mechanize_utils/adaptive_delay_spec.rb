@@ -39,14 +39,14 @@ RSpec.describe ScraperUtils::MechanizeUtils::AdaptiveDelay do
       delay = delay_handler.next_delay(test_url, -30.0)
       expect(delay).to eq(1.0) # Clamped to min_delay
       delay = delay_handler.next_delay(test_url, 2.5)
-      expect(delay).to be_within(0.1).of(1.9) # start to come up immediately
+      expect(delay).to be_within(0.1).of(3.25) # start to come up immediately
     end
 
     it "Handles huge response times due to clock skew sanely" do
       delay = delay_handler.next_delay(test_url, 999.0)
       expect(delay).to eq(30.0) # Clamped to max_delay
       delay = delay_handler.next_delay(test_url, 1.0)
-      expect(delay).to be_within(0.1).of(27.4) # start to come down immediately
+      expect(delay).to be_within(0.1).of(23.5) # start to come down immediately
     end
 
     it "uses 4x first response time as initial delay" do
@@ -63,15 +63,37 @@ RSpec.describe ScraperUtils::MechanizeUtils::AdaptiveDelay do
       end
     end
 
-    it "smooths changes using 9/10 ratio" do
+    it "smooths changes using 3/4 ratio" do
       # Start with response time of 1.0 (initial delay 4.0)
       first_delay = delay_handler.next_delay(test_url, 1.0)
       expect(first_delay).to be_within(0.1).of(4.0)
 
       # Sudden change to response time of 2.0
-      # New delay should be (9 * 4.0 + 8.0) / 10 = 4.4
+      # New delay should be (4 * 4.0 + 8.0) / 5 = 4.4
       next_delay = delay_handler.next_delay(test_url, 2.0)
-      expect(next_delay).to be_within(0.1).of(4.4)
+      expect(next_delay).to be_within(0.1).of(5.0)
+      next_delay = delay_handler.next_delay(test_url, 2.0)
+      expect(next_delay).to be_within(0.1).of(5.75)
+      next_delay = delay_handler.next_delay(test_url, 2.0)
+      expect(next_delay).to be_within(0.1).of(6.31)
+      next_delay = delay_handler.next_delay(test_url, 2.0)
+      expect(next_delay).to be_within(0.1).of(6.73)
+      next_delay = delay_handler.next_delay(test_url, 2.0)
+      expect(next_delay).to be_within(0.1).of(7.05)
+      next_delay = delay_handler.next_delay(test_url, 2.0)
+      expect(next_delay).to be_within(0.1).of(7.29)
+      next_delay = delay_handler.next_delay(test_url, 2.0)
+      expect(next_delay).to be_within(0.1).of(7.47)
+      next_delay = delay_handler.next_delay(test_url, 2.0)
+      expect(next_delay).to be_within(0.1).of(7.60)
+      next_delay = delay_handler.next_delay(test_url, 2.0)
+      expect(next_delay).to be_within(0.1).of(7.70)
+      next_delay = delay_handler.next_delay(test_url, 2.0)
+      expect(next_delay).to be_within(0.1).of(7.77)
+      next_delay = delay_handler.next_delay(test_url, 2.0)
+      expect(next_delay).to be_within(0.1).of(7.83)
+      next_delay = delay_handler.next_delay(test_url, 2.0)
+      expect(next_delay).to be_within(0.1).of(7.87)
     end
 
     it "restricts min delay value" do
@@ -137,7 +159,7 @@ RSpec.describe ScraperUtils::MechanizeUtils::AdaptiveDelay do
       delay1 = delay_handler.next_delay(test_url1, 1.0)
       delay2 = delay_handler.next_delay(test_url2, 2.0)
       expect(delay2).not_to eq(8.0) # Not 4 * 2.0
-      expect(delay2).to be_within(0.1).of(((9.0 * delay1) + 8.0) / 10.0)
+      expect(delay2).to be_within(0.1).of(5.0)
     end
 
     it "maintains separate caches for different domains" do

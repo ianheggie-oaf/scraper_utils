@@ -59,7 +59,7 @@ module ScraperUtils
         # Initialise average from initial_response_time rather than zero to start with reasonable approximation
         current_delay = @delays[uris_domain] || target_delay
         # exponential smooth the delay to smooth out wild swings (Equivalent to an RC low pass filter)
-        delay = ((4.0 * current_delay) + target_delay) / 5.0
+        delay = ((3.0 * current_delay) + target_delay) / 4.0
         delay = delay.clamp(@min_delay, @max_delay)
 
         if DebugUtils.basic?
