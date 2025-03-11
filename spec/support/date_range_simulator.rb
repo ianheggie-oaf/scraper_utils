@@ -21,7 +21,7 @@ module DateRangeSimulator
     today = Date.today
     current_start_date = today - days + 1
 
-    puts "DEBUG Simulating days: #{days} [#{current_start_date} .. #{today}], everytime: #{everytime}, max_period: #{max_period} (starting #{days} earlier)"
+    puts "DEBUG Simulating days: #{days} [#{current_start_date} .. #{today}], everytime: #{everytime}, max_period: #{max_period} (starting #{days} earlier)" if ENV['DEBUG'] == '3'
 
     simulation_days ||= days * 2
     start_simulation_date = today + 1 - simulation_days
@@ -50,7 +50,7 @@ module DateRangeSimulator
       simulation_history[simulation_date] = []
 
       # Log the ranges
-      puts "DEBUG #{simulation_date - days + 1} .. #{simulation_date} searches: #{ranges.map { |a, b, c| "[#{a} .. #{b} = #{(b - a).to_i + 1}; #{c}]" }.join(', ')}"
+      puts "DEBUG #{simulation_date - days + 1} .. #{simulation_date} searches: #{ranges.map { |a, b, c| "[#{a} .. #{b} = #{(b - a).to_i + 1}; #{c}]" }.join(', ')}" if ENV['DEBUG'] == '3'
 
       # Track which days were checked
       days_checked_today = 0
