@@ -340,8 +340,8 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
     it "calculates min and max random delays correctly" do
       config = described_class.new(random_delay: 5)
 
-      expect(config.min_random).to be_within(0.01).of(Math.sqrt(5 * 3.0 / 13.0))
-      expect(config.max_random).to be_within(0.01).of(3 * config.min_random)
+      expect(config.random_range.first).to be_within(0.01).of(Math.sqrt(5 * 3.0 / 13.0))
+      expect(config.random_range.last).to be_within(0.01).of(3 * config.random_range.first)
     end
 
     it "handles nil random delay when default is also nil" do
@@ -350,8 +350,7 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
       end
       config = described_class.new(random_delay: nil)
 
-      expect(config.min_random).to be_nil
-      expect(config.max_random).to be_nil
+      expect(config.random_range).to be_nil
     end
   end
 

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "thread_request"
+
 module ScraperUtils
   module Scheduler
     # Encapsulates a request to be executed (usually )asynchronously by the ThreadPool)
@@ -16,6 +18,7 @@ module ScraperUtils
       # Initialize a new async request
       #
       # @param authority [Symbol, nil] Authority for correlating requests and responses
+      #   nil is used when threads are disabled to process locally without duplicating codd
       # @param subject [Object] The object to call the method on
       # @param method_name [Symbol] The method to call on the subject
       # @param args [Array] The arguments to pass to the method
@@ -30,12 +33,14 @@ module ScraperUtils
       end
 
       # Execute the request by calling the method on the subject
-      #
+      # If the subject has an instance variable @delay_till then that is added to the response
       # @return [ThreadResponse] The result of the request
       def execute
-        super(:processed) do
+        result = execute_block do
           subject.send(method_name, *args)
         end
+        result.delay_till = subject.instance_variable_get(:@delay_till)
+        result
       end
 
       private

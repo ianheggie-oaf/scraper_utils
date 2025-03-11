@@ -33,21 +33,21 @@ RSpec.describe ScraperUtils::RandomizeUtils do
   end
 
   describe '.random?' do
-    context 'when MORPH_NOT_RANDOM is set' do
+    context 'when MORPH_DISABLE_RANDOM is set' do
       before do
-        ENV['MORPH_NOT_RANDOM'] = '1'
+        ENV['MORPH_DISABLE_RANDOM'] = '1'
         described_class.reset!
       end
-      after { ENV.delete('MORPH_NOT_RANDOM') }
+      after { ENV.delete('MORPH_DISABLE_RANDOM') }
 
       it 'returns false' do
         expect(described_class.random?).to be(false)
       end
     end
 
-    context 'when MORPH_NOT_RANDOM is not set' do
+    context 'when MORPH_DISABLE_RANDOM is not set' do
       before do
-        ENV.delete('MORPH_NOT_RANDOM')
+        ENV.delete('MORPH_DISABLE_RANDOM')
         described_class.reset!
       end
 

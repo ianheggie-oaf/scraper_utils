@@ -85,7 +85,7 @@ module ScraperUtils
 
       # Give access for testing
 
-      attr_reader :max_load, :min_random, :max_random
+      attr_reader :max_load, :random_range
 
       # Creates Mechanize agent configuration with sensible defaults overridable via configure
       # @param timeout [Integer, nil] Timeout for agent connections (default: 60)
@@ -138,8 +138,8 @@ module ScraperUtils
         end
 
         if @random_delay
-          @min_random = Math.sqrt(@random_delay * 3.0 / 13.0).round(3)
-          @max_random = (3 * @min_random).round(3)
+          min_random = Math.sqrt(@random_delay * 3.0 / 13.0)
+          @random_range = min_random.round(3)..(3 * min_random).round(3)
         end
 
         today = Date.today.strftime("%Y-%m-%d")
@@ -177,7 +177,6 @@ module ScraperUtils
           verify_proxy_works(agent)
         end
 
-        @connection_started_at = nil
         agent.pre_connect_hooks << method(:pre_connect_hook)
         agent.post_connect_hooks << method(:post_connect_hook)
       end
@@ -227,22 +226,21 @@ module ScraperUtils
                 "URL is disallowed by robots.txt specific rules: #{uri}"
         end
 
+        @delay_till = nil
         @delay = @robots_checker&.crawl_delay&.round(3)
-        delays = { robot_txt: @delay }
-        unless @delay
+        debug_msg = "Delaying robots.txt: crawl_delay #{@delay} seconds"
+        unless @delay&.positive?
           delays = {
             max_load: @adaptive_delay&.next_delay(uri, response_time)&.round(3),
-            random: (@min_random ? (rand(@min_random..@max_random) ** 2).round(3) : nil)
+            random: (@random_range ? (rand(@random_range) ** 2).round(3) : nil)
           }
-          @delay = delays.values.compact.sum&.round(3)
+          @delay = [delays[:max_load], delays[:random]].compact.sum
+          debug_msg = "Delaying #{@delay} seconds, sum of: #{delays.inspect}"
         end
         if @delay&.positive?
-          $stderr.flush
-          ScraperUtils::LogUtils.log("Delaying #{@delay} seconds, max of #{delays.inspect}") if ENV["DEBUG"]
-          $stdout.flush
-          ScraperUtils::Scheduler.delay(@delay)
+          @delay_till = Time.now + @delay
+          ScraperUtils::LogUtils.log(debug_msg) if ScraperUtils::DebugUtils.basic?
         end
-
         response
       end
 

@@ -8,7 +8,7 @@ module ScraperUtils
       # Controls if processing order can be randomized
       #
       # @return [Boolean] true if all processing is done sequentially, otherwise false
-      # @note Defaults to true unless the MORPH_NOT_RANDOM ENV variable is set
+      # @note Defaults to true unless the MORPH_DISABLE_RANDOM ENV variable is set
       attr_accessor :random
 
       # Reports if processing order will be randomized
@@ -18,7 +18,7 @@ module ScraperUtils
     end
 
     def self.reset!
-      @random = ENV["MORPH_NOT_RANDOM"].to_s.empty?
+      @random = ENV["MORPH_DISABLE_RANDOM"].to_s.empty?
     end
 
     # reset on class load

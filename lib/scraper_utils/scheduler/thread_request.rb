@@ -4,7 +4,8 @@ require_relative "thread_response"
 
 module ScraperUtils
   module Scheduler
-    # Encapsulates a request to be executed (usually) asynchronously by the ThreadPool
+    # Encapsulates a request that pushed to the fiber's request queue to be executed by the Fiber's Thread
+    # The response is returned via the Scheduler's response queue
     # @see {ProcessRequest}
     # @see {DelayRequest}
     class ThreadRequest
@@ -18,17 +19,16 @@ module ScraperUtils
         @authority = authority
       end
 
-      # Execute the request by calling the block
-      #
+      # Execute a request by calling the block
+      # @param resume_state [Symbol] Resume type to construct ThreadResponse with
       # @return [ThreadResponse] The result of the request
-      def execute(response_type)
+      def execute_block
         start_time = Time.now
         begin
           result = yield
           elapsed_time = Time.now - start_time
           ThreadResponse.new(
             authority,
-            response_type,
             result,
             nil,
             elapsed_time
@@ -37,19 +37,11 @@ module ScraperUtils
           elapsed_time = Time.now - start_time
           ThreadResponse.new(
             authority,
-            response_type,
             nil,
             e,
             elapsed_time
           )
         end
-      end
-
-      # Validate that all required parameters are present and valid
-      #
-      # @raise [ArgumentError] If any parameter is missing or invalid
-      def validate!
-        raise ArgumentError, "Authority must be provided" unless @authority
       end
     end
   end
