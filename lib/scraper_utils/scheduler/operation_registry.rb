@@ -6,9 +6,7 @@ require_relative "operation_worker"
 
 module ScraperUtils
   module Scheduler
-    # A utility module for managing fibers for interleaving multiple scraping operations
-    # Yielding during delay periods allows for efficient
-    # use of wait time by switching between operations.
+    # Registry of all active OperationWorkers registered to be processed
     class OperationRegistry
 
       def initialize
@@ -29,11 +27,10 @@ module ScraperUtils
         return unless operation
 
         operation.shutdown
-        # Remove if dead or the fiber is unregistering itself
-        if !operation.alive? || Fiber.current.object_id == operation.fiber.object_id
-          @operations.delete(operation.authority)
-          @fiber_ids.delete(operation.fiber.object_id)
-        end
+
+        # Remove operation from registry since shutdown has done all it can to shut down the thread and fiber
+        @operations.delete(operation.authority)
+        @fiber_ids.delete(operation.fiber.object_id)
       end
 
       def current_authority
@@ -82,7 +79,7 @@ module ScraperUtils
       # Save the thread response into the thread and mark that it can continue
       def process_thread_response(response)
         operation = find(response.authority)
-        operation&.process_thread_response response
+        operation&.save_thread_response response
       end
 
       private

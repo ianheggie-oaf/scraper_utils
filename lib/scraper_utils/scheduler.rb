@@ -18,23 +18,23 @@ module ScraperUtils
   #
   # Process flow
   # 0. operation_workers start with response = ThreadResponse.resume_state = CONTINUE_STATE
-  # 1. resumes fiber of operation_worker with the last response when Time.now >= resume_at
+  # 1. resumes fiber of operation_worker with the last response when `Time.now` >= resume_at
   # 2. worker fiber
   #    a. sets resume_at based on calculated delay and waiting_for_response
   #    b. pushes request onto local request queue if parallel, otherwise
-  #       executes request immediately in fiber and passes response to process_thread_response
+  #       executes request immediately in fiber and passes response to save_thread_response
   #    c. fiber yields true to main fiber to indicate it wants to continue after resume_at / response arrives
-  # 3. thread for fiber (if parallel)
+  # 3. one thread for each fiber (if parallel), thread:
   #    a. pops request
   #    b. executes request
   #    c. pushes response onto global response queue (includes response_time)
   # 4. main fiber - schedule_all loop
-  #    a. pops any responses and calls process_thread_response on operation_worker
-  #    c. resumes(true) operation_worker (fiber) when Time.now >= resume_at and not waiting_for_response
+  #    a. pops any responses and calls save_thread_response on operation_worker
+  #    c. resumes(true) operation_worker (fiber) when `Time.now` >= resume_at and not waiting_for_response
   # 5. When worker fiber is finished it returns false to indicate it is finished
   #    OR when shutdown is called resume(false) is called to indicate worker fiber should not continue
   #
-  # process_thread_response:
+  # save_thread_response:
   #    * Updates running average and calculates next_resume_at
   #
   # fiber aborts processing if 2nd argument is true
@@ -61,9 +61,7 @@ module ScraperUtils
       # @note Defaults to true unless the MORPH_DISABLE_THREADS ENV variable is set
       attr_accessor :threaded
 
-      # Reports if processing order will be randomized
-      #
-      # @return (see #random)
+      # @return (see #threaded)
       alias threaded? threaded
 
       # Controls whether Mechanize network requests are executed in parallel using threads
@@ -159,28 +157,33 @@ module ScraperUtils
       Timeout.timeout(timeout) do
         count = operation_registry&.size
 
-        # Main scheduling loop
+        # Main scheduling loop - process till there is nothing left to do
         until @operation_registry.empty?
+          # Save results from threads in operation state so more operation fibers can be resumed
           while (thread_response = get_response)
-            @operation_registry.process_thread_response(thread_response)
+            @operation_registry.save_thread_response(thread_response)
           end
 
+          delay = Constants::POLL_PERIOD
           # Find the operation that ready to run with the earliest resume_at
           operation = @operation_registry.can_resume.first
-          delay = Constants::POLL_PERIOD
-          if operation&.alive?
-            delay = [(operation.resume_at - Time.now).to_f, delay].min
-            unless delay.positive?
-              @totals[:resume_count] += 1
-              operation.resume
-            end
-          elsif operation
-            log "WARNING: removing dead operation for #{operation.authority} - it should have cleaned up after itself!"
-            operations.delete(operation.authority)
-          else
+
+          if !operation
             # No fibers ready to run, sleep a short time
             sleep(delay)
             @totals[:poll_sleep] += delay
+          elsif !operation.alive?
+            log "WARNING: removing dead operation for #{operation.authority} - it should have cleaned up after itself!"
+            operations.delete(operation.authority)
+          else
+            # Sleep till operation should be resumed, but no longer than POLL_PERIOD
+            # as responses may come in soon that enable an earlier operation to be resumed
+            delay = [(operation.resume_at - Time.now).to_f, delay].min
+            unless delay.positive?
+              @totals[:resume_count] += 1
+              # resume fiber with response to last request
+              operation.resume
+            end
           end
         end
 
@@ -214,14 +217,13 @@ module ScraperUtils
         log "Calling Fiber.yield #{request.inspect}"
       end
       response = Fiber.yield true
-      unless response.is_a?(ThreadResponse) && response.response_type == Scheduler::ProcessRequest::RESUME_STATE
-        raise "Expected ThreadResponse.response_type == :processed, got: #{response.inspect}"
+      unless response.is_a?(ThreadResponse)
+        raise "Expected ThreadResponse, got: #{response.inspect}"
       end
       response.result!
     end
 
     # Records
-
 
     # Gets the authority associated with the current fiber or thread
     #

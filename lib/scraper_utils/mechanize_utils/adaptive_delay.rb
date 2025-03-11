@@ -47,14 +47,19 @@ module ScraperUtils
         @delays[domain(uri)] || @min_delay
       end
 
+      # Returns the next_delay calculated from a smoothed average of response_time to use less than max_load% of server
+      #
       # @param uri [URI::Generic, String] URL the response came from
       # @param response_time [Float] Time in seconds the server took to respond
       # @return [Float] The calculated delay to use with the next request
       def next_delay(uri, response_time)
         uris_domain = domain(uri)
+        # calculate target_delay to achieve desired max_load% using pre-calculated multiplier
         target_delay = (response_time * @response_multiplier).clamp(0.0, @max_delay)
+        # Initialise average from initial_response_time rather than zero to start with reasonable approximation
         current_delay = @delays[uris_domain] || target_delay
-        delay = ((9.0 * current_delay) + target_delay) / 10.0
+        # exponential smooth the delay to smooth out wild swings (Equivalent to an RC low pass filter)
+        delay = ((4.0 * current_delay) + target_delay) / 5.0
         delay = delay.clamp(@min_delay, @max_delay)
 
         if DebugUtils.basic?

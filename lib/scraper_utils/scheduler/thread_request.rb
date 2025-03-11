@@ -7,7 +7,6 @@ module ScraperUtils
     # Encapsulates a request that pushed to the fiber's request queue to be executed by the Fiber's Thread
     # The response is returned via the Scheduler's response queue
     # @see {ProcessRequest}
-    # @see {DelayRequest}
     class ThreadRequest
       # @return [Symbol] Authority for correlating requests and responses
       attr_reader :authority
@@ -20,7 +19,6 @@ module ScraperUtils
       end
 
       # Execute a request by calling the block
-      # @param resume_state [Symbol] Resume type to construct ThreadResponse with
       # @return [ThreadResponse] The result of the request
       def execute_block
         start_time = Time.now

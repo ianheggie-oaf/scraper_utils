@@ -5,7 +5,7 @@ require_relative 'process_request'
 
 module ScraperUtils
   module Scheduler
-    # Handles the processing of a registered operation and associated state
+    # Handles the processing of a registered operation and associated fiber and thread state
     class OperationWorker
 
       class NotReadyError < RuntimeError; end
@@ -42,8 +42,8 @@ module ScraperUtils
         @response && alive?
       end
 
-      # Process thread response from main or worker fiber
-      def process_thread_response(response)
+      # Save thread response from main or worker fiber
+      def save_thread_response(response)
         raise "#{authority} Wasn't waiting for response! Got: #{response.inspect}" unless @waiting_for_response
         @response = response
         @waiting_for_response = false
@@ -74,7 +74,7 @@ module ScraperUtils
       # ===================================================
       # @! Main Fiber API
 
-      # Initialize a new Worker
+      # Initialize a new Worker from the main Fiber
       # @param fiber [Fiver] Fiber to process authority block
       # @param authority [Symbol] Authority label
       # @param response_queue [Thread::Queue, nil] Queue for thread responses if enabled
@@ -110,6 +110,7 @@ module ScraperUtils
         validate_fiber(main: true)
 
         request = @fiber.resume(@response)
+        # submit the next request for processing
         submit_request(request) if request
         request
       end
@@ -117,16 +118,29 @@ module ScraperUtils
       # ===================================================
       # @! Worker Fiber API
 
-      # Queue a thread request to be executed in parallel from worker fiber
-      # otherwise locally
-      # The response will be returned via the global response_queue
-      # (or processed immediately if not in parallel mode)
+      # Queue a thread request to be executed from worker fiber
+      # otherwise locally if parallel processing is disabled
+      #
+      # Process flow if parallel enabled:
+      # 1. This method:
+      #   a. pushes request onto local @request_queue
+      #   b. calls Fiber.yield(true) so Scheduler can run other fibers
+      # 2. Meanwhile, this fibers thread:
+      #   a. pops request off queue
+      #   b. processes request
+      #   c. pushes response to global response queue
+      # 3. Meanwhile, Scheduler on Main fiber:
+      #   a. pops response from response queue as they arrive
+      #     * calls {#save_thread_response} on associated worker to save each response
+      #   c. calls {#resume} on worker when it is its' turn (based on resume_at) and it can_resume (has @response)
+      #
+      # If parallel processing is not enabled, then the processing occurs in the workers fiber
       #
       # @param request [ThreadRequest] The request to be processed in thread
       def submit_request(request)
         raise NotReadyError, "Cannot make a second request before the first has responded!" if @waiting_for_response
         raise ArgumentError, "Must be passed a valid ThreadRequest!" unless request.is_a? ThreadRequest
-        validate_fiber
+        validate_fiber(main: false)
 
         @response = nil
         @waiting_for_response = true
@@ -134,7 +148,7 @@ module ScraperUtils
           @request_queue&.push request
           Fiber.yield true
         else
-          process_thread_response request.execute
+          save_thread_response request.execute
         end
         nil
       end

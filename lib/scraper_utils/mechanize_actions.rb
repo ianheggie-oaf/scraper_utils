@@ -9,7 +9,7 @@ module ScraperUtils
   #   
   #   actions = [
   #     [:click, "Next Page"],
-  #     [:click, ["Option A", "Option B"]] # Will select one randomly
+  #     [:click, ["Option A", "xpath://div[@id='results']/a", "css:.some-button"]] # Will select one randomly
   #   ]
   #   
   #   processor = ScraperUtils::MechanizeActions.new(agent)
@@ -50,7 +50,7 @@ module ScraperUtils
     # @example Action format
     #   actions = [
     #     [:click, "Link Text"],                     # Click on link with this text
-    #     [:click, ["Option A", "Option B"]],        # Click on one of these options (randomly selected)
+    #     [:click, ["Option A", "text:Option B"]],   # Click on one of these options (randomly selected)
     #     [:click, "css:.some-button"],              # Use CSS selector
     #     [:click, "xpath://div[@id='results']/a"],  # Use XPath selector
     #     [:block, ->(page, args, agent, results) { [page, { custom_results: 'data' }] }] # Custom block
@@ -105,7 +105,7 @@ module ScraperUtils
     # Select an element on the page based on selector string
     #
     # @param page [Mechanize::Page] The page to search in
-    # @param selector_string [String] The selector string
+    # @param selector_string [String] The selector string, optionally with "css:", "xpath:" or "text:" prefix
     # @return [Mechanize::Element, nil] The selected element or nil if not found
     def select_element(page, selector_string)
       # Handle different selector types based on prefixes
@@ -133,7 +133,7 @@ module ScraperUtils
           end
         end
 
-        # Get the link with the shortest (closest matching) text then the longest href
+        # Get the link with the a. shortest (closest matching) text and then b. the longest href
         matching_links.min_by { |l| [l.text.strip.length, -l.href.length] }
       end
     end

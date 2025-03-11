@@ -25,7 +25,6 @@ module ScraperUtils
       # @param result [Object, nil] The result of the command
       # @param error [Exception, nil] Any error that occurred during execution
       # @param time_taken [Float] The time taken to submit_request the command in seconds
-      # @param delay_till [Time, nil] Optionally delay the next process
       def initialize(authority, result, error, time_taken)
         @authority = authority
         @result = result
