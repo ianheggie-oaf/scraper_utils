@@ -1,6 +1,6 @@
-# Interleaving Requests with FiberScheduler
+# Interleaving Requests with Dcheduler
 
-The `ScraperUtils::FiberScheduler` provides a lightweight utility that:
+The `ScraperUtils::Dcheduler` provides a lightweight utility that:
 
 * Works on other authorities while in the delay period for an authority's next request
 * Optimizes the total scraper run time
@@ -12,9 +12,9 @@ The `ScraperUtils::FiberScheduler` provides a lightweight utility that:
 ## Implementation
 
 To enable fiber scheduling, change your scrape method as per
-[](example_scrape_with_fibers.rb example scrape with fibers}
+{example_scrape_with_fibers.rb example scrape with fibers}
 
-## Logging with FiberScheduler
+## Logging with Dcheduler
 
 Use {ScraperUtils::LogUtils.log} instead of `puts` when logging within the authority processing code.
 This will prefix the output lines with the authority name, which is needed since the system will interleave the work and
@@ -29,4 +29,4 @@ This uses {ScraperUtils::RandomizeUtils} for determining the order of operations
 ScraperUtils::RandomizeUtils.sequential = true
 ```
 
-For full details, see the {FiberScheduler}.
+For full details, see the {Dcheduler}.

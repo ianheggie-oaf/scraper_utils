@@ -121,16 +121,16 @@ RSpec.describe ScraperUtils::MechanizeUtils::AdaptiveDelay do
     let(:delay_handler) { described_class.new }
 
     it "extracts domain from URL string" do
-      expect(delay_handler.domain("https://example.com/path")).to eq("https://example.com")
+      expect(delay_handler.send(:domain, "https://example.com/path")).to eq("https://example.com")
     end
 
     it "extracts domain from URI object" do
       uri = URI("https://example.com/path")
-      expect(delay_handler.domain(uri)).to eq("https://example.com")
+      expect(delay_handler.send(:domain, uri)).to eq("https://example.com")
     end
 
     it "normalizes domain to lowercase" do
-      expect(delay_handler.domain("HTTPS://EXAMPLE.COM/path")).to eq("https://example.com")
+      expect(delay_handler.send(:domain, "HTTPS://EXAMPLE.COM/path")).to eq("https://example.com")
     end
   end
 

@@ -34,13 +34,6 @@ module ScraperUtils
         )
       end
 
-      # @param uri [URI::Generic, String] The URL to extract the domain from
-      # @return [String] The domain in the format "scheme://host"
-      def domain(uri)
-        uri = URI(uri) unless uri.is_a?(URI)
-        "#{uri.scheme}://#{uri.host}".downcase
-      end
-
       # @param uri [URI::Generic, String] URL to get delay for
       # @return [Float] Current delay for the domain, or min_delay if no delay set
       def delay(uri)
@@ -71,6 +64,15 @@ module ScraperUtils
 
         @delays[uris_domain] = delay
         delay
+      end
+
+      private
+
+      # @param uri [URI::Generic, String] The URL to extract the domain from
+      # @return [String] The domain in the format "scheme://host"
+      def domain(uri)
+        uri = URI(uri) unless uri.is_a?(URI)
+        "#{uri.scheme}://#{uri.host}".downcase
       end
     end
   end

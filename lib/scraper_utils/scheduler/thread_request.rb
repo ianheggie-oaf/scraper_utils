@@ -18,6 +18,11 @@ module ScraperUtils
         @authority = authority
       end
 
+      # Execute a request and return ThreadResponse - use helper method `.execute_block`
+      def execute
+        raise NotImplementedError, "Implement in subclass"
+      end
+
       # Execute a request by calling the block
       # @return [ThreadResponse] The result of the request
       def execute_block

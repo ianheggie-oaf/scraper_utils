@@ -75,8 +75,8 @@ module ScraperUtils
       attr_reader :exceptions
 
       # Returns the run_operations timeout
-      # On timeout a message will be output
-      # The ruby process with exit with status 124 on timeout unless timeout <= 3600
+      # On timeout a message will be output and the ruby program will exit with exit code 124.
+      # If the timeout <= 3600 (1 hour) then the message will be output but the ruby program won't exit
       #
       # @return [Integer] Overall process timeout in seconds (default MORPH_TIMEOUT ENV value or 6 hours)
       attr_accessor :timeout
@@ -264,7 +264,7 @@ module ScraperUtils
         percent_polling = (100.0 * @totals[:poll_sleep] / @totals[:delay_requested]).round(1)
       end
       puts
-      LogUtils.log "FiberScheduler processed #{@totals[:resume_count]} calls for #{count} registrations, " \
+      LogUtils.log "Scheduler processed #{@totals[:resume_count]} calls for #{count} registrations, " \
                      "waiting #{percent_polling}% (#{@totals[:poll_sleep]&.round(1)}) of the " \
                      "#{@totals[:delay_requested]&.round(1)} seconds requested."
       puts

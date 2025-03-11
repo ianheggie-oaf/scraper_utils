@@ -76,8 +76,12 @@ module ScraperUtils
       # ===================================================
       # @! Main Fiber API
 
-      # Initialize a new Worker from the main Fiber
-      # @param fiber [Fiver] Fiber to process authority block
+      # Initialize a new Worker Fiber and Thread, called from the main Fiber
+      #
+      # The Thread executes ThreadRequest objects from the request_queue and pushes
+      # responses to the global response_queue.
+      #
+      # @param fiber [Fiber] Fiber to process authority block
       # @param authority [Symbol] Authority label
       # @param response_queue [Thread::Queue, nil] Queue for thread responses if enabled
       def initialize(fiber, authority, response_queue)

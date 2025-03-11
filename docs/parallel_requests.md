@@ -4,17 +4,17 @@ The ScraperUtils library provides a mechanism for executing operations in parall
 
 ## Overview
 
-When scraping multiple authority websites, network requests often become the bottleneck. While the `FiberScheduler` efficiently interleaves operations during delay periods, network requests still block a fiber until they complete.
+When scraping multiple authority websites, network requests often become the bottleneck. While the `Dcheduler` efficiently interleaves operations during delay periods, network requests still block a fiber until they complete.
 
 The `ThreadPool` optimizes this process by:
 
 1. Executing operations in parallel using a thread pool
 2. Allowing other fibers to continue working while waiting for responses
-3. Integrating seamlessly with the existing `FiberScheduler`
+3. Integrating seamlessly with the existing `Dcheduler`
 
 ## Key Components
 
-### AsyncCommand
+### ThreadRequest
 
 A value object encapsulating a command to be executed:
 - External ID: Any value suitable as a hash key (String, Symbol, Integer, Object) that identifies the command
@@ -22,7 +22,7 @@ A value object encapsulating a command to be executed:
 - Method: The method to call on the subject
 - Args: Arguments to pass to the method
 
-### AsyncResponse
+### ThreadResponse
 
 A value object encapsulating a response:
 - External ID: Matches the ID from the original command
@@ -46,7 +46,7 @@ ScraperUtils::Scheduler.register_operation("authority_name") do
   # page = agent.get(url)
 
   # Use:
-  page = ScraperUtils::Scheduler.queue_network_request(agent, :get, [url])
+  page = ScraperUtils::Scheduler.execute_request(agent, :get, [url])
 
   # Process page as normal
   process_page(page)
@@ -113,9 +113,9 @@ The system will log:
 
 ## Implementation Details
 
-The integration between `FiberScheduler` and `ThreadPool` follows these principles:
+The integration between `Dcheduler` and `ThreadPool` follows these principles:
 
-1. `FiberScheduler` maintains ownership of all fiber scheduling
+1. `Dcheduler` maintains ownership of all fiber scheduling
 2. `ThreadPool` only knows about commands and responses
 3. Communication happens via value objects with validation
 4. State is managed in dedicated `FiberState` objects
