@@ -5,157 +5,196 @@ require_relative "../../spec_helper"
 RSpec.describe ScraperUtils::Scheduler::OperationWorker do
   let(:response_queue) { Thread::Queue.new }
   let(:authority) { :test_authority }
-  let(:main_fiber) { ScraperUtils::Scheduler::Constants::MAIN_FIBER }
 
-  # Create a more elaborate fiber that can capture test contexts
-  def create_test_fiber
+  # Setup fiber for testing
+  let(:fiber) do
     Fiber.new do
-      # First yield to set up test
-      setup_data = Fiber.yield(:ready_for_setup)
-      
-      # Second yield to run actual test
-      test_block = Fiber.yield(:ready_for_test)
-      
-      # Run the test in this fiber's context
-      result = test_block.call(setup_data)
-      
-      # Return result to test runner
-      Fiber.yield(result)
+      fiber_result = Fiber.yield :ready # First yield to get ready for tests
+      Fiber.yield fiber_result # Pass back the result
     end
   end
+  
+  # Prepare worker with real fiber and thread
+  let(:worker) { described_class.new(fiber, authority, response_queue) }
 
   describe "#submit_request" do
-    let(:test_fiber) { create_test_fiber }
-    let(:request) { ScraperUtils::Scheduler::ThreadRequest.new(authority) { 42 } }
-    
-    # Helper method to run a test in the worker fiber's context
-    def run_in_fiber(worker, test_block)
-      # Start the fiber
-      test_fiber.resume
-      # Pass setup data
-      test_fiber.resume(worker)
-      # Run the test block
-      test_fiber.resume(test_block)
+    before do
+      # Prepare the fiber for testing
+      expect(fiber.resume).to eq(:ready)
     end
     
     it "raises error if already waiting for response" do
-      worker = described_class.new(test_fiber, authority, response_queue)
+      # Set waiting flag to true
+      worker.instance_variable_set(:@waiting_for_response, true)
       
-      result = run_in_fiber(worker, lambda { |w|
-        # Setup test state
-        w.instance_variable_set(:@waiting_for_response, true)
-        
-        # Execute method under test and capture any exceptions
-        begin
-          w.submit_request(request)
-          :no_error_raised
-        rescue => e
-          e
-        end
-      })
-      
-      # Verify the exception was raised
-      expect(result).to be_a(ScraperUtils::Scheduler::OperationWorker::NotReadyError)
-      expect(result.message).to match(/Cannot make a second request/)
+      # The worker.submit_request must be executed within fiber's context
+      # We'll execute it in the fiber by passing a test code block to the fiber
+      expect {
+        # Execute inside the fiber's context
+        fiber.resume(-> {
+          worker.submit_request(TestThreadRequest.new(authority))
+        })
+      }.to raise_error(ScraperUtils::Scheduler::OperationWorker::NotReadyError, /Cannot make a second request/)
     end
     
     it "raises error if request is not a ThreadRequest" do
-      worker = described_class.new(test_fiber, authority, response_queue)
-      
-      result = run_in_fiber(worker, lambda { |w|
-        begin
-          w.submit_request("not a request")
-          :no_error_raised
-        rescue => e
-          e
-        end
-      })
-      
-      # Verify the exception was raised
-      expect(result).to be_a(ArgumentError)
-      expect(result.message).to match(/Must be passed a valid ThreadRequest/)
+      # This also needs to run in the fiber context
+      expect {
+        fiber.resume(-> {
+          worker.submit_request("not a thread request")
+        })
+      }.to raise_error(ArgumentError, /Must be passed a valid ThreadRequest/)
     end
     
-    context "with request queue" do
-      let(:request_queue) { Thread::Queue.new }
-      
-      it "pushes request to queue and yields with true" do
-        worker = described_class.new(test_fiber, authority, response_queue)
-        worker.instance_variable_set(:@request_queue, request_queue)
+    context "with request queue (parallel processing enabled)" do
+      it "processes request through thread and queue" do
+        # Create a request
+        request = TestThreadRequest.new(authority, result: :test_result)
         
-        # Allow us to track queue usage
-        allow(request_queue).to receive(:push)
+        # The request queue is already created by the worker
+        request_queue = worker.instance_variable_get(:@request_queue)
+        expect(request_queue).to be_a(Thread::Queue)
         
-        # Run test in fiber context
-        run_in_fiber(worker, lambda { |w|
-          # Execute method and capture calls to Fiber.yield
-          allow(Fiber).to receive(:yield).and_call_original
-          allow(Fiber).to receive(:yield).with(true).and_return(:fake_response)
-          
-          # Call the method
-          result = w.submit_request(request)
-          
-          # Return tracking data
-          {
-            yield_called: Fiber.yield == :fake_response,
-            request_pushed: true,
-            result: result
-          }
+        # Set up an observer thread to monitor the response_queue
+        response_received = false
+        response = nil
+        
+        observer = Thread.new do
+          response = response_queue.pop
+          response_received = true
+        end
+        
+        # Execute the request in the fiber
+        fiber.resume(-> {
+          # This pushes to the queue and yields control back to scheduler
+          worker.submit_request(request)
         })
         
-        # Verify the request was pushed to the queue
-        expect(request_queue).to have_received(:push).with(request)
+        # Give the threads time to process
+        sleep 0.1
+        observer.join(0.1)
+        
+        # Check that a response was recorded and passed to the response queue
+        expect(response_received).to be true
+        expect(response).to be_a(ScraperUtils::Scheduler::ThreadResponse)
+        expect(response.authority).to eq(authority)
+        expect(response.result).to eq(:test_result)
+        
+        # The worker should now be waiting for a response
+        expect(worker.instance_variable_get(:@waiting_for_response)).to be true
       end
       
-      it "raises error if response is nil (shutdown signal)" do
-        worker = described_class.new(test_fiber, authority, response_queue)
-        worker.instance_variable_set(:@request_queue, request_queue)
-        
-        result = run_in_fiber(worker, lambda { |w|
-          # Setup Fiber.yield to return nil (shutdown signal)
-          allow(Fiber).to receive(:yield).and_return(nil)
+      it "raises error if Fiber.yield returns nil (worker shutdown)" do
+        # Create a new fiber that will help us test the shutdown case
+        shutdown_fiber = Fiber.new do
+          # First yield to get ready
+          Fiber.yield(:ready)
           
-          # Execute method and capture any exceptions
+          # Second yield to execute test
+          test_block = Fiber.yield(:ready_for_test)
+          
+          # Set up Fiber.yield to return nil to simulate shutdown
+          original_yield = Fiber.method(:yield)
+          
           begin
-            w.submit_request(request)
-            :no_error_raised
-          rescue => e
-            e
+            # Replace yield to return nil
+            Fiber.define_singleton_method(:yield) do |*args|
+              nil # Simulate shutdown
+            end
+            
+            # Run the test block
+            begin
+              test_block.call
+              Fiber.yield(:no_error)
+            rescue => e
+              Fiber.yield(e)
+            end
+          ensure
+            # Restore original yield
+            Fiber.define_singleton_method(:yield, original_yield)
           end
+        end
+        
+        # Set up worker with our test fiber
+        test_worker = described_class.new(shutdown_fiber, authority, response_queue)
+        
+        # Start the fiber
+        shutdown_fiber.resume
+        shutdown_fiber.resume
+        
+        # Run the test
+        result = shutdown_fiber.resume(-> {
+          test_worker.submit_request(TestThreadRequest.new(authority))
         })
         
-        # Verify the exception was raised
+        # Expect the termination error
         expect(result).to be_a(RuntimeError)
         expect(result.message).to match(/Terminated fiber/)
       end
     end
     
     context "without request queue (parallel disabled)" do
-      let(:thread_response) { instance_double(
-        ScraperUtils::Scheduler::ThreadResponse,
-        delay_till: nil,
-        time_taken: 0.1
-      )}
+      # Create a worker without a response queue to disable parallel processing
+      let(:direct_worker) { described_class.new(fiber, authority, nil) }
       
-      it "executes request directly" do
-        worker = described_class.new(test_fiber, authority, nil)
-        worker.instance_variable_set(:@request_queue, nil)
+      it "processes request directly without thread" do
+        # Create a request
+        request = TestThreadRequest.new(authority, result: :direct_result)
         
-        # Setup the request to execute and return a response
-        allow(request).to receive(:execute).and_return(thread_response)
+        # There should be no request queue
+        expect(direct_worker.instance_variable_get(:@request_queue)).to be_nil
         
-        # Run test in fiber context
-        result = run_in_fiber(worker, lambda { |w|
-          # Call the method
-          response = w.submit_request(request)
-          
-          # Return result for verification
-          response
+        # Execute the request in the fiber and get result
+        result = fiber.resume(-> {
+          direct_worker.submit_request(request)
         })
         
         # Verify the request was executed directly
-        expect(request).to have_received(:execute)
-        expect(result).to eq(thread_response)
+        expect(request.executed).to be true
+        expect(result).to be_a(ScraperUtils::Scheduler::ThreadResponse)
+        expect(result.result).to eq(:direct_result)
+      end
+      
+      it "handles errors in direct processing" do
+        # Create a request that will raise an error
+        test_error = RuntimeError.new("Test error")
+        request = TestThreadRequest.new(authority, error: test_error)
+        
+        # Execute the request in the fiber and get result
+        result = fiber.resume(-> {
+          direct_worker.submit_request(request)
+        })
+        
+        # Verify the error was handled properly
+        expect(request.executed).to be true
+        expect(result).to be_a(ScraperUtils::Scheduler::ThreadResponse)
+        expect(result.error).to eq(test_error)
+        expect(result.success?).to be false
+      end
+      
+      it "passes delay_till from request to response" do
+        future_time = Time.now + 10
+        request = TestThreadRequest.new(authority, delay_till: future_time)
+        
+        # Execute the request in the fiber and get result
+        result = fiber.resume(-> {
+          direct_worker.submit_request(request)
+        })
+        
+        # Verify the delay_till was passed from request to response
+        expect(result.delay_till).to eq(future_time)
+      end
+    end
+  end
+
+  # Clean up any fibers and threads
+  after do
+    # Complete any fibers that might still be alive
+    if fiber.alive?
+      begin
+        fiber.resume(nil) while fiber.alive?
+      rescue FiberError
+        # Ignore errors during cleanup
       end
     end
   end
