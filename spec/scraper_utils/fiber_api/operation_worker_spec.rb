@@ -6,42 +6,48 @@ RSpec.describe ScraperUtils::Scheduler::OperationWorker do
   let(:response_queue) { Thread::Queue.new }
   let(:authority) { :test_authority }
   let(:main_fiber) { ScraperUtils::Scheduler::Constants::MAIN_FIBER }
-  let(:worker_fiber) { Fiber.new { :worker_fiber } }
+
+  # Create a more elaborate fiber that can capture test contexts
+  def create_test_fiber
+    Fiber.new do
+      # First yield to set up test
+      setup_data = Fiber.yield(:ready_for_setup)
+      
+      # Second yield to run actual test
+      test_block = Fiber.yield(:ready_for_test)
+      
+      # Run the test in this fiber's context
+      result = test_block.call(setup_data)
+      
+      # Return result to test runner
+      Fiber.yield(result)
+    end
+  end
 
   describe "#submit_request" do
-    # Create a functioning worker fiber that can execute our tests
-    let(:worker_fiber_instance) do
-      Fiber.new do
-        context = Fiber.yield(:ready)  # Initial yield to allow setup
-        
-        # Allow execution of a block in this fiber's context
-        test_block = Fiber.yield(:ready_for_block)
-        result = test_block.call
-        
-        # Return the result to the test
-        Fiber.yield(result)
-      end
-    end
+    let(:test_fiber) { create_test_fiber }
+    let(:request) { ScraperUtils::Scheduler::ThreadRequest.new(authority) { 42 } }
     
-    # Create the worker with our test fiber
-    let(:worker) do
-      worker = described_class.new(worker_fiber_instance, authority, response_queue) 
-      worker_fiber_instance.resume # Advance to first yield
-      worker_fiber_instance.resume(nil) # Pass nil as context
-      worker
+    # Helper method to run a test in the worker fiber's context
+    def run_in_fiber(worker, test_block)
+      # Start the fiber
+      test_fiber.resume
+      # Pass setup data
+      test_fiber.resume(worker)
+      # Run the test block
+      test_fiber.resume(test_block)
     end
-    
-    let(:request) { instance_double(ScraperUtils::Scheduler::ThreadRequest) }
     
     it "raises error if already waiting for response" do
-      # Run the test inside the worker fiber
-      result = worker_fiber_instance.resume(-> {
-        # Set up test state
-        worker.instance_variable_set(:@waiting_for_response, true)
+      worker = described_class.new(test_fiber, authority, response_queue)
+      
+      result = run_in_fiber(worker, lambda { |w|
+        # Setup test state
+        w.instance_variable_set(:@waiting_for_response, true)
         
         # Execute method under test and capture any exceptions
         begin
-          worker.submit_request(request)
+          w.submit_request(request)
           :no_error_raised
         rescue => e
           e
@@ -54,10 +60,11 @@ RSpec.describe ScraperUtils::Scheduler::OperationWorker do
     end
     
     it "raises error if request is not a ThreadRequest" do
-      # Run the test inside the worker fiber
-      result = worker_fiber_instance.resume(-> {
+      worker = described_class.new(test_fiber, authority, response_queue)
+      
+      result = run_in_fiber(worker, lambda { |w|
         begin
-          worker.submit_request("not a request")
+          w.submit_request("not a request")
           :no_error_raised
         rescue => e
           e
@@ -70,30 +77,29 @@ RSpec.describe ScraperUtils::Scheduler::OperationWorker do
     end
     
     context "with request queue" do
-      before do
-        # Set up the request queue for this test context
-        worker.instance_variable_set(:@request_queue, Thread::Queue.new)
-      end
+      let(:request_queue) { Thread::Queue.new }
       
       it "pushes request to queue and yields with true" do
-        request_queue = worker.instance_variable_get(:@request_queue)
+        worker = described_class.new(test_fiber, authority, response_queue)
+        worker.instance_variable_set(:@request_queue, request_queue)
         
         # Allow us to track queue usage
         allow(request_queue).to receive(:push)
         
-        # Run the test in the worker fiber's context
-        worker_fiber_instance.resume(-> {
-          # Store initial state
-          initial_waiting = worker.instance_variable_get(:@waiting_for_response)
+        # Run test in fiber context
+        run_in_fiber(worker, lambda { |w|
+          # Execute method and capture calls to Fiber.yield
+          allow(Fiber).to receive(:yield).and_call_original
+          allow(Fiber).to receive(:yield).with(true).and_return(:fake_response)
           
-          # Execute method under test
-          worker.submit_request(request)
+          # Call the method
+          result = w.submit_request(request)
           
-          # Return relevant state for verification
+          # Return tracking data
           {
-            waiting_before: initial_waiting,
-            waiting_after: worker.instance_variable_get(:@waiting_for_response),
-            request_pushed: true
+            yield_called: Fiber.yield == :fake_response,
+            request_pushed: true,
+            result: result
           }
         })
         
@@ -102,48 +108,52 @@ RSpec.describe ScraperUtils::Scheduler::OperationWorker do
       end
       
       it "raises error if response is nil (shutdown signal)" do
-        request_queue = worker.instance_variable_get(:@request_queue)
+        worker = described_class.new(test_fiber, authority, response_queue)
+        worker.instance_variable_set(:@request_queue, request_queue)
         
-        # Set up for the test
-        allow(request_queue).to receive(:push)
-        allow(Fiber).to receive(:yield).and_return(nil) # Simulate a shutdown signal
-        
-        # Run the test in the worker fiber's context
-        result = worker_fiber_instance.resume(-> {
+        result = run_in_fiber(worker, lambda { |w|
+          # Setup Fiber.yield to return nil (shutdown signal)
+          allow(Fiber).to receive(:yield).and_return(nil)
+          
+          # Execute method and capture any exceptions
           begin
-            worker.submit_request(request)
+            w.submit_request(request)
             :no_error_raised
           rescue => e
             e
           end
         })
         
-        # Verify appropriate exception was raised for shutdown case
+        # Verify the exception was raised
         expect(result).to be_a(RuntimeError)
         expect(result.message).to match(/Terminated fiber/)
       end
     end
     
     context "without request queue (parallel disabled)" do
-      before do
-        worker.instance_variable_set(:@request_queue, nil)
-      end
+      let(:thread_response) { instance_double(
+        ScraperUtils::Scheduler::ThreadResponse,
+        delay_till: nil,
+        time_taken: 0.1
+      )}
       
       it "executes request directly" do
-        thread_response = instance_double(
-          ScraperUtils::Scheduler::ThreadResponse, 
-          delay_till: nil, 
-          time_taken: 0.1
-        )
+        worker = described_class.new(test_fiber, authority, nil)
+        worker.instance_variable_set(:@request_queue, nil)
         
+        # Setup the request to execute and return a response
         allow(request).to receive(:execute).and_return(thread_response)
         
-        # Run the test in the worker fiber's context
-        result = worker_fiber_instance.resume(-> {
-          worker.submit_request(request)
+        # Run test in fiber context
+        result = run_in_fiber(worker, lambda { |w|
+          # Call the method
+          response = w.submit_request(request)
+          
+          # Return result for verification
+          response
         })
         
-        # Verify direct execution instead of queuing
+        # Verify the request was executed directly
         expect(request).to have_received(:execute)
         expect(result).to eq(thread_response)
       end

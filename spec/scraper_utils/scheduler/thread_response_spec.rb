@@ -7,8 +7,7 @@ RSpec.describe ScraperUtils::Scheduler::ThreadResponse do
   let(:result) { double("Result") }
   let(:error) { nil }
   let(:time_taken) { 0.5 }
-  let(:thread_request) { instance_double(ScraperUtils::Scheduler::ThreadRequest, authority: authority) }
-  let(:response) { described_class.new(thread_request, result, error, time_taken) }
+  let(:response) { described_class.new(authority, result, error, time_taken) }
 
   describe "#initialize" do
     it "sets required attributes" do
@@ -18,25 +17,21 @@ RSpec.describe ScraperUtils::Scheduler::ThreadResponse do
       expect(response.time_taken).to be_within(0.0001).of(time_taken)
     end
     
-    it "calculates delay_till based on time_taken" do
-      # Default behavior is to delay for double the time taken
-      expect(response.delay_till).to be_within(0.0001).of(Time.now + 2 * time_taken)
+    it "initializes delay_till to nil" do
+      expect(response.delay_till).to be_nil
+    end
+  end
+  
+  describe "#success?" do
+    it "returns true when there is no error" do
+      expect(response.success?).to be true
     end
     
-    it "sets completed to true" do
-      expect(response.completed?).to be true
-    end
-    
-    it "sets failed to false when no error" do
-      expect(response.failed?).to be false
-    end
-    
-    it "sets failed to true when error present" do
+    it "returns false when there is an error" do
       response_with_error = described_class.new(
-        thread_request, nil, RuntimeError.new("Test error"), time_taken
+        authority, nil, RuntimeError.new("Test error"), time_taken
       )
-      
-      expect(response_with_error.failed?).to be true
+      expect(response_with_error.success?).to be false
     end
   end
   
@@ -49,18 +44,33 @@ RSpec.describe ScraperUtils::Scheduler::ThreadResponse do
     end
   end
   
+  describe "#result!" do
+    it "returns result when success" do
+      expect(response.result!).to eq(result)
+    end
+    
+    it "raises error when not success" do
+      test_error = RuntimeError.new("Test error")
+      error_response = described_class.new(
+        authority, nil, test_error, time_taken
+      )
+      
+      expect { error_response.result! }.to raise_error(test_error)
+    end
+  end
+  
   describe "#inspect" do
     it "includes key attributes in string representation" do
       inspect_output = response.inspect
       
       expect(inspect_output).to include(authority.to_s)
-      expect(inspect_output).to include("completed")
+      expect(inspect_output).to include("success")
       expect(inspect_output).to include(time_taken.to_s)
     end
     
     it "indicates failure when error present" do
       response_with_error = described_class.new(
-        thread_request, nil, RuntimeError.new("Test error"), time_taken
+        authority, nil, RuntimeError.new("Test error"), time_taken
       )
       
       inspect_output = response_with_error.inspect

@@ -145,7 +145,7 @@ module ScraperUtils
       # @param request [ThreadRequest] The request to be processed in thread
       def submit_request(request)
         raise NotReadyError, "Cannot make a second request before the first has responded!" if @waiting_for_response
-        raise ArgumentError, "Must be passed a valid ThreadRequest!" unless request.is_a? ThreadRequest
+        raise ArgumentError, "Must be passed a valid ThreadRequest! Got: #{request.inspect}" unless request.is_a? ThreadRequest
         validate_fiber(main: false)
 
         @response = nil
