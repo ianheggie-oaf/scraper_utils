@@ -1,10 +1,11 @@
 # frozen_string_literal: true
 
+# Helper class for testing thread requests with configurable behavior
 class TestThreadRequest < ScraperUtils::Scheduler::ThreadRequest
-  attr_reader :executed
+  attr_reader :executed, :delay_till
 
   def initialize(authority, result: nil, error: nil, delay_till: nil)
-    @authority = authority
+    super(authority)
     @result = result
     @error = error
     @delay_till = delay_till

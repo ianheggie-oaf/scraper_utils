@@ -20,14 +20,17 @@ RSpec.describe ScraperUtils::Scheduler::ThreadRequest do
   
   describe "#execute_block" do
     it "calls block and returns ThreadResponse with result" do
+      # Use real Time objects, but freeze time for consistent testing
       start_time = Time.now
-      allow(Time).to receive(:now).and_return(start_time, start_time + 0.7)
+      end_time = start_time + 0.7
       
-      response = request.execute_block { :result }
+      allow(Time).to receive(:now).and_return(start_time, end_time)
+      
+      response = request.execute_block { "real result" }
       
       expect(response).to be_a(ScraperUtils::Scheduler::ThreadResponse)
       expect(response.authority).to eq(authority)
-      expect(response.result).to eq(:result)
+      expect(response.result).to eq("real result")
       expect(response.error).to be_nil
       expect(response.time_taken).to be_within(0.0001).of(0.7)
     end
@@ -40,6 +43,14 @@ RSpec.describe ScraperUtils::Scheduler::ThreadRequest do
       expect(response.result).to be_nil
       expect(response.error).to eq(test_error)
       expect(response.success?).to be false
+    end
+    
+    it "measures actual execution time" do
+      # Use sleep for real timing measurement
+      response = request.execute_block { sleep(0.01); "result" }
+      
+      expect(response.time_taken).to be > 0
+      expect(response.time_taken).to be_within(0.05).of(0.01) # Allow some overhead
     end
   end
 end

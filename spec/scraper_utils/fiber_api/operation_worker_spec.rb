@@ -60,38 +60,46 @@ RSpec.describe ScraperUtils::Scheduler::OperationWorker do
         expect(response).to be_a(ScraperUtils::Scheduler::ThreadResponse)
         expect(response.authority).to eq(authority)
         expect(response.result).to eq(:test_result)
+        expect(response.error).to be_nil
         expect(worker.instance_variable_get(:@waiting_for_response)).to be true
       end
 
       it "raises error if Fiber.yield returns nil (worker shutdown)" do
-        fiber = Fiber.new do |action|
-          # Replace Fiber.yield
-          original_yield = Fiber.method(:yield)
-          begin
-            Fiber.define_singleton_method(:yield) do |*args|
-              nil # Simulate shutdown
-            end
-
-            # Run the action in this context
-            action.call
-          rescue => e
-            e
-          ensure
-            # Restore original yield
-            Fiber.define_singleton_method(:yield, original_yield)
+        # Let's use a real Fiber that will override Fiber.yield briefly
+        original_yield = Fiber.method(:yield)
+        begin
+          # Override Fiber.yield to return nil for our test
+          Fiber.define_singleton_method(:yield) do |*args|
+            nil # This simulates a shutdown
           end
+          
+          # Create a test fiber that will actually execute our worker test
+          test_fiber = Fiber.new do
+            # Inside this fiber, Fiber.yield will return nil due to our override
+            test_worker = ScraperUtils::Scheduler::OperationWorker.new(
+              Fiber.current, authority, response_queue
+            )
+            
+            # This should raise the error we're testing for
+            begin
+              test_worker.submit_request(TestThreadRequest.new(authority))
+              "Did not raise error" # Should not reach here
+            rescue RuntimeError => e
+              e # Return the error to check it
+            end
+          end
+          
+          # Get the result from our test
+          result = test_fiber.resume
+          
+          # Verify we got the expected error
+          expect(result).to be_a(RuntimeError)
+          expect(result.message).to match(/Terminated fiber/)
+        ensure
+          # Always restore original Fiber.yield
+          Fiber.singleton_class.send(:remove_method, :yield)
+          Fiber.define_singleton_method(:yield, original_yield)
         end
-
-        # Create a worker with our shutdown fiber
-        worker = described_class.new(fiber, authority, response_queue)
-
-        # Run the test
-        result = fiber.resume(-> {
-          worker.submit_request(TestThreadRequest.new(authority))
-        })
-
-        expect(result).to be_a(RuntimeError)
-        expect(result.message).to match(/Terminated fiber/)
       end
     end
 
@@ -111,6 +119,7 @@ RSpec.describe ScraperUtils::Scheduler::OperationWorker do
         expect(request.executed).to be true
         expect(result).to be_a(ScraperUtils::Scheduler::ThreadResponse)
         expect(result.result).to eq(:direct_result)
+        expect(result.error).to be_nil
       end
 
       it "handles errors in direct processing" do

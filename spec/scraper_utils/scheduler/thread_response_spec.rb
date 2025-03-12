@@ -4,7 +4,7 @@ require_relative "../../spec_helper"
 
 RSpec.describe ScraperUtils::Scheduler::ThreadResponse do
   let(:authority) { :test_authority }
-  let(:result) { double("Result") }
+  let(:result) { "test_result" }
   let(:error) { nil }
   let(:time_taken) { 0.5 }
   let(:response) { described_class.new(authority, result, error, time_taken) }
@@ -28,8 +28,9 @@ RSpec.describe ScraperUtils::Scheduler::ThreadResponse do
     end
     
     it "returns false when there is an error" do
+      test_error = RuntimeError.new("Test error")
       response_with_error = described_class.new(
-        authority, nil, RuntimeError.new("Test error"), time_taken
+        authority, nil, test_error, time_taken
       )
       expect(response_with_error.success?).to be false
     end
@@ -69,8 +70,9 @@ RSpec.describe ScraperUtils::Scheduler::ThreadResponse do
     end
     
     it "indicates failure when error present" do
+      test_error = RuntimeError.new("Test error")
       response_with_error = described_class.new(
-        authority, nil, RuntimeError.new("Test error"), time_taken
+        authority, nil, test_error, time_taken
       )
       
       inspect_output = response_with_error.inspect

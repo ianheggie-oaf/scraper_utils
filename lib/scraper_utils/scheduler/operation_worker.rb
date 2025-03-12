@@ -39,7 +39,7 @@ module ScraperUtils
 
       # Worker is ready for fiber to be resumed (resume_at may be in the future)
       def can_resume?
-        @response && alive?
+        !@response.nil? && alive?
       end
 
       # Save thread response from main or worker fiber

@@ -4,9 +4,9 @@ require_relative "../../spec_helper"
 
 RSpec.describe ScraperUtils::Scheduler::ProcessRequest do
   let(:authority) { :test_authority }
-  let(:subject_instance) { double("MechanizeClient", get: "<html></html>") }
-  let(:method_name) { :get }
-  let(:args) { ["https://example.com"] }
+  let(:subject_instance) { Kernel } # Real object everyone has access to
+  let(:method_name) { :sleep }
+  let(:args) { [0.001] } # Very small value to keep tests fast
   let(:request) { described_class.new(authority, subject_instance, method_name, args) }
 
   describe "#initialize" do
@@ -50,43 +50,76 @@ RSpec.describe ScraperUtils::Scheduler::ProcessRequest do
   
   describe "#execute" do
     it "calls method on subject with args" do
-      result = double("Result")
-      allow(subject_instance).to receive(method_name).with(*args).and_return(result)
+      # Create a test class with a method we can track
+      test_class = Class.new do
+        attr_reader :called_with
+        
+        def test_method(*args)
+          @called_with = args
+          "result value"
+        end
+      end
       
-      response = request.execute
+      test_instance = test_class.new
+      test_request = described_class.new(authority, test_instance, :test_method, [1, 2, 3])
       
-      expect(response.result).to eq(result)
+      response = test_request.execute
+      
+      expect(test_instance.called_with).to eq([1, 2, 3])
+      expect(response.result).to eq("result value")
       expect(response.error).to be_nil
       expect(response.success?).to be true
     end
     
     it "captures exceptions during execution" do
-      test_error = RuntimeError.new("Test error")
-      allow(subject_instance).to receive(method_name).and_raise(test_error)
+      # Create a test class that raises an error
+      test_class = Class.new do
+        def error_method
+          raise "Test error"
+        end
+      end
       
-      response = request.execute
+      test_instance = test_class.new
+      test_request = described_class.new(authority, test_instance, :error_method, [])
+      
+      response = test_request.execute
       
       expect(response.result).to be_nil
-      expect(response.error).to eq(test_error)
+      expect(response.error).to be_a(RuntimeError)
+      expect(response.error.message).to eq("Test error")
       expect(response.success?).to be false
     end
     
     it "tracks execution time" do
-      start_time = Time.now
-      allow(Time).to receive(:now).and_return(start_time, start_time + 0.7)
+      # Use sleep for predictable timing
+      test_request = described_class.new(authority, Kernel, :sleep, [0.01])
       
-      response = request.execute
+      response = test_request.execute
       
-      expect(response.time_taken).to be_within(0.0001).of(0.7)
+      expect(response.time_taken).to be > 0
+      expect(response.time_taken).to be_within(0.05).of(0.01) # Allow some overhead
     end
     
     it "adds delay_till from subject when present" do
-      future_time = Time.now + 10
-      allow(subject_instance).to receive(:instance_variable_get).with(:@delay_till).and_return(future_time)
+      # Create a test class with @delay_till
+      test_class = Class.new do
+        attr_reader :delay_till
+        
+        def initialize
+          @delay_till = Time.now + 10
+        end
+        
+        def test_method
+          "test"
+        end
+      end
       
-      response = request.execute
+      test_instance = test_class.new
+      test_request = described_class.new(authority, test_instance, :test_method, [])
       
-      expect(response.delay_till).to eq(future_time)
+      response = test_request.execute
+      
+      expect(response.delay_till).to eq(test_instance.delay_till)
     end
   end
 end

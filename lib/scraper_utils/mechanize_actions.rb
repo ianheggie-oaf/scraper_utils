@@ -67,8 +67,7 @@ module ScraperUtils
           when :click
             handle_click(current_page, args)
           when :block
-            block = args.shift
-            block.call(current_page, args, agent, @results.dup)
+            handle_block(current_page, args)
           else
             raise ArgumentError, "Unknown action type: #{action_type}"
           end
@@ -80,6 +79,18 @@ module ScraperUtils
     end
 
     private
+
+    # Process a block action
+    #
+    # @param page [Mechanize::Page] The current page
+    # @param args [Array] The block and its arguments
+    # @return [Array<Mechanize::Page, Hash>] The resulting page and status
+    def handle_block(page, args)
+      block = args.shift
+      # Apply replacements to all remaining arguments
+      processed_args = args.map { |arg| apply_replacements(arg) }
+      block.call(page, processed_args.first, agent, @results.dup)
+    end
 
     # Handle a click action
     #
@@ -111,10 +122,28 @@ module ScraperUtils
       # Handle different selector types based on prefixes
       if selector_string.start_with?("css:")
         selector = selector_string.sub(/^css:/, '')
-        page.at_css(selector)
+        # We need to convert Nokogiri elements to Mechanize elements for clicking
+        css_element = page.at_css(selector)
+        return nil unless css_element
+        
+        # If it's a link, find the matching Mechanize link
+        if css_element.name.downcase == 'a' && css_element['href']
+          return page.links.find { |link| link.href == css_element['href'] }
+        end
+        
+        return css_element
       elsif selector_string.start_with?("xpath:")
         selector = selector_string.sub(/^xpath:/, '')
-        page.at_xpath(selector)
+        # We need to convert Nokogiri elements to Mechanize elements for clicking
+        xpath_element = page.at_xpath(selector)
+        return nil unless xpath_element
+        
+        # If it's a link, find the matching Mechanize link
+        if xpath_element.name.downcase == 'a' && xpath_element['href']
+          return page.links.find { |link| link.href == xpath_element['href'] }
+        end
+        
+        return xpath_element
       else
         # Default to text: for links
         selector = selector_string.sub(/^text:/, '')
