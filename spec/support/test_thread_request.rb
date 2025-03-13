@@ -19,7 +19,7 @@ class TestThreadRequest < ScraperUtils::Scheduler::ThreadRequest
     else
       execute_block { @result || :default_result }
     end
-    result.delay_till = @delay_till
+    result.delay_till = @delay_till if result
     result
   end
 end

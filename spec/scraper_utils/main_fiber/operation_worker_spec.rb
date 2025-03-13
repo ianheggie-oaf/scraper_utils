@@ -21,111 +21,89 @@ RSpec.describe ScraperUtils::Scheduler::OperationWorker do
   end
 
   describe "#shutdown" do
-    it "closes request queue and joins thread" do
-      # Create a real worker with a real queue and thread
+    it "clears resume state" do
       worker = described_class.new(worker_fiber, authority, response_queue)
-      request_queue = worker.instance_variable_get(:@request_queue)
-      thread = worker.instance_variable_get(:@thread)
       
-      # Track if the queue is closed and thread is joined
-      original_close = request_queue.method(:close)
-      close_called = false
-      allow(request_queue).to receive(:close) do
-        close_called = true
-        original_close.call
-      end
-      
-      original_join = thread.method(:join)
-      join_called = false
-      allow(thread).to receive(:join) do
-        join_called = true
-        original_join.call
-      end
+      # Set some initial state
+      worker.resume_at = Time.now + 10
+      worker.response = :some_response
+      worker.instance_variable_set(:@waiting_for_response, true)
       
       worker.shutdown
       
-      expect(close_called).to be true
-      expect(join_called).to be true
-      expect(worker.instance_variable_get(:@request_queue)).to be_nil
-      expect(worker.instance_variable_get(:@thread)).to be_nil
+      # Verify state is cleared
+      expect(worker.resume_at).to be_nil
+      expect(worker.response).to be_nil
+      expect(worker.instance_variable_get(:@waiting_for_response)).to be false
     end
     
-    it "sets resume_at to the future" do
-      worker = described_class.new(worker_fiber, authority, response_queue)
-      old_resume_at = worker.resume_at
-      
-      worker.shutdown
-      
-      expect(worker.resume_at).to be > old_resume_at
-    end
-    
-    it "attempts to resume fiber if it's alive and not the current fiber" do
+    it "resumes fiber with nil if fiber is alive" do
       alive_fiber = Fiber.new { Fiber.yield }
+      alive_fiber.resume # Start fiber but leave it alive
+      
       worker = described_class.new(alive_fiber, authority, response_queue)
       
-      # We need to track if resume was called
-      resume_called = false
-      original_resume = alive_fiber.method(:resume)
-      allow(alive_fiber).to receive(:resume) do |arg|
-        resume_called = true
-        original_resume.call(arg)
-      end
+      # Check if resume is called with nil
+      expect(alive_fiber).to receive(:resume).with(nil)
       
       worker.shutdown
-      
-      expect(resume_called).to be true
     end
     
     it "doesn't resume the current fiber" do
-      # Create a class to run a test in a separate fiber
-      class CurrentFiberTest
-        attr_reader :fiber, :worker, :resume_called
+      # For this test we need to simulate when fiber == Fiber.current
+      
+      # Create a fiber that will act as both the worker fiber and current fiber
+      test_fiber = Fiber.new do
+        # Execute code while this is the current fiber
+        current_fiber = Fiber.current
         
-        def initialize(authority, response_queue)
-          @authority = authority
-          @response_queue = response_queue
-          @resume_called = false
-          @fiber = Fiber.new { self.test }
+        # Create a worker with this fiber
+        worker = described_class.new(current_fiber, authority, response_queue)
+        
+        # Track if resume is called
+        resume_called = false
+        allow(current_fiber).to receive(:resume) do |*args|
+          resume_called = true
         end
         
-        def test
-          # Create a new fiber that we'll use as both current fiber and worker fiber
-          current_fiber = Fiber.new { 
-            yield # This keeps it alive
-          }
-          
-          # Start the fiber
-          current_fiber.resume
-          
-          # Store current object_id for comparison
-          saved_object_id = current_fiber.object_id
-          
-          # Setup the test - pretend this is the current fiber
-          allow(Fiber).to receive(:current).and_return(current_fiber)
-          
-          # Create worker with this fiber
-          @worker = ScraperUtils::Scheduler::OperationWorker.new(
-            current_fiber, @authority, @response_queue
-          )
-          
-          # Spy on the resuming
-          original_resume = current_fiber.method(:resume)
-          allow(current_fiber).to receive(:resume) do |*args|
-            @resume_called = true
-            original_resume.call(*args)
-          end
-          
-          # Execute the shutdown - this should not try to resume the current fiber
-          @worker.shutdown
-          
-          # Return the test result
-          @resume_called
+        # Override Fiber.current to return our test fiber
+        allow(Fiber).to receive(:current).and_return(current_fiber)
+        
+        # Call shutdown - this should not try to resume since it's the current fiber
+        worker.shutdown
+        
+        # Return whether resume was called
+        resume_called
+      end
+      
+      # Run the test in the test fiber
+      result = test_fiber.resume
+      
+      # Verify resume was not called
+      expect(result).to be false
+    end
+    
+    it "raises error if called from worker fiber" do
+      # Create a fiber to run the test
+      test_fiber = Fiber.new do
+        # Create a worker with this fiber
+        worker = described_class.new(Fiber.current, authority, response_queue)
+        
+        # Try to call shutdown from within the fiber
+        begin
+          worker.shutdown
+          "No error raised" # Should not get here
+        rescue ArgumentError => e
+          e # Return the error
         end
       end
       
       # Run the test
-      test = CurrentFiberTest.new(authority, response_queue)
-      expect(test.fiber.resume).to eq(false)
+      error = test_fiber.resume
+      
+      # Verify the error
+      expect(error).to be_a(ArgumentError)
+      expect(error.message).to match(/Must be run within main fiber/)
     end
   end
   

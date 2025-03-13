@@ -37,9 +37,9 @@ module ScraperUtils
         fiber.alive?
       end
 
-      # Worker is ready for fiber to be resumed (resume_at may be in the future)
+      # Worker has the necessary state to be resumed
       def can_resume?
-        !@response.nil? && alive?
+        !@response.nil? && !@resume_at.nil? && alive?
       end
 
       # Save thread response from main or worker fiber
@@ -54,23 +54,18 @@ module ScraperUtils
         response
       end
 
-      # Shutdown fiber from main or worker fiber
-      # if the fiber is alive and NOT the current fiber, then the fiber is resumed with an abort request
-      # if the fiber is alive and IS the current fiber, then it is assumed fiber is finishing up
-      def shutdown
+      # close resources from worker fiber
+      # Called by worker fiber just before it exits
+      def close
+        validate_fiber(main: false)
         # Signal thread to finish processing, then wait for it
         @request_queue&.close
         @thread&.join
+        # drop references for GC
         @request_queue = nil
         @thread = nil
-
-        @resume_at = self.class.next_resume_at
-        @waiting_for_response = false
-        if @fiber.alive? && @fiber.object_id != Fiber.current.object_id
-          # Trigger other fiber to raise an error and thus shutdown
-          @fiber.resume(nil)
-          # throw away response - we don't care since shutdown is a last resort before exiting
-        end
+        # make can_resume? false
+        clear_resume_state
       end
 
       # ===================================================
@@ -121,6 +116,17 @@ module ScraperUtils
         request
       end
 
+      # Shutdown worker called from main fiber
+      def shutdown
+        validate_fiber(main: true)
+
+        clear_resume_state
+        if @fiber&.alive?
+          # Trigger other fiber to raise an error and thus call shutdown
+          @fiber.resume(nil)
+        end
+      end
+
       # ===================================================
       # @! Worker Fiber API
 
@@ -167,6 +173,13 @@ module ScraperUtils
         return if Fiber.current.object_id == required_fiber.object_id
 
         raise ArgumentError, "Must be run within #{main ? 'main' : 'own'} fiber!"
+      end
+
+      # Clear resume state so the operation won't be resumed
+      def clear_resume_state
+        @resume_at = nil
+        @response = nil
+        @waiting_for_response = false
       end
     end
   end

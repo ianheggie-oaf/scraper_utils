@@ -26,8 +26,7 @@ module ScraperUtils
         operation = find(key)
         return unless operation
 
-        operation.shutdown
-
+        operation.close
         # Remove operation from registry since shutdown has done all it can to shut down the thread and fiber
         @operations.delete(operation.authority)
         @fiber_ids.delete(operation.fiber.object_id)

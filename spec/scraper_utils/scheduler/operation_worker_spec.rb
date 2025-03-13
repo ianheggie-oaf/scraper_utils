@@ -68,6 +68,13 @@ RSpec.describe ScraperUtils::Scheduler::OperationWorker do
       expect(worker.can_resume?).to eq(false)
     end
     
+    it "returns false if resume_at is nil" do
+      worker = described_class.new(worker_fiber, authority, response_queue)
+      worker.resume_at = nil
+      
+      expect(worker.can_resume?).to eq(false)
+    end
+    
     it "returns false if fiber is not alive" do
       dead_fiber = Fiber.new { :done }
       dead_fiber.resume # Exhaust the fiber
@@ -76,7 +83,7 @@ RSpec.describe ScraperUtils::Scheduler::OperationWorker do
       expect(worker.can_resume?).to eq(false)
     end
     
-    it "returns true when response is available and fiber is alive" do
+    it "returns true when response and resume_at are available and fiber is alive" do
       worker = described_class.new(worker_fiber, authority, response_queue)
       
       expect(worker.can_resume?).to eq(true)
@@ -129,6 +136,25 @@ RSpec.describe ScraperUtils::Scheduler::OperationWorker do
       )
       
       expect(worker.save_thread_response(response)).to eq(response)
+    end
+  end
+  
+  describe "#clear_resume_state" do
+    it "clears all resume-related state" do
+      worker = described_class.new(worker_fiber, authority, response_queue)
+      
+      # Set some state
+      worker.resume_at = Time.now + 10
+      worker.response = :test_response
+      worker.instance_variable_set(:@waiting_for_response, true)
+      
+      # Call the method
+      worker.send(:clear_resume_state)
+      
+      # Verify state is cleared
+      expect(worker.resume_at).to be_nil
+      expect(worker.response).to be_nil
+      expect(worker.instance_variable_get(:@waiting_for_response)).to be false
     end
   end
 end
