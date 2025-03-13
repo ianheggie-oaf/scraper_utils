@@ -1,9 +1,11 @@
-# Randomizing Requests
+Randomizing Requests
+====================
 
 `ScraperUtils::RandomizeUtils` provides utilities for randomizing processing order in scrapers,
 which is helpful for distributing load and avoiding predictable patterns.
 
-## Basic Usage
+Usage
+-----
 
 Pass a `Collection` or `Array` to `ScraperUtils::RandomizeUtils.randomize_order` to randomize it in production, but
 receive it as is when testing.
@@ -18,17 +20,19 @@ records.each do |record|
 end
 ```
 
-## Testing Configuration
+Testing Configuration
+---------------------
 
 Enforce sequential mode when testing by adding the following code to `spec/spec_helper.rb`:
 
 ```ruby
-ScraperUtils::RandomizeUtils.sequential = true
+ScraperUtils::RandomizeUtils.random = false
 ```
 
-## Notes
+Notes
+-----
 
-* You can also force sequential mode by setting the env variable `MORPH_PROCESS_SEQUENTIALLY` to `1` (any non-blank value)
-* Testing using VCR requires sequential mode
+* You can also disable random mode by setting the env variable `MORPH_DISABLE_RANDOM` to `1` (or any non-blank value)
+* Testing using VCR requires random to be disabled
 
-For full details, see the [RandomizeUtils class documentation](https://rubydoc.info/gems/scraper_utils/ScraperUtils/RandomizeUtils).
+For full details, see {ScraperUtils::RandomizeUtils Randomize Utils class documentation}

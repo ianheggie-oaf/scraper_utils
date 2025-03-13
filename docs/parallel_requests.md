@@ -1,43 +1,28 @@
-# Parallel Request Processing
+Parallel Request Processing
+===========================
 
-The ScraperUtils library provides a mechanism for executing operations in parallel using a thread pool, while still maintaining the interleaved fiber-based scheduling system.
+The ScraperUtils library provides a mechanism for executing network I/O requests in parallel using a thread for each
+operation worker, allowing the fiber to yield control and allow other fibers to process whilst the thread processes the
+mechanize network I/O request.
 
-## Overview
+This can be disabled by setting `MORPH_DISABLE_THREADS` ENV var to a non-blank value.
 
-When scraping multiple authority websites, network requests often become the bottleneck. While the `Dcheduler` efficiently interleaves operations during delay periods, network requests still block a fiber until they complete.
+Overview
+--------
 
-The `ThreadPool` optimizes this process by:
+When scraping multiple authority websites, around 99% of the time was spent waiting for network I/O. While the
+`Scheduler`
+efficiently interleaves fibers during delay periods, network I/O requests will still block a fiber until they
+complete.
 
-1. Executing operations in parallel using a thread pool
-2. Allowing other fibers to continue working while waiting for responses
-3. Integrating seamlessly with the existing `Dcheduler`
+The `OperationWorker` optimizes this process by:
 
-## Key Components
+1. Executing mechanize network operations in parallel using a thread for each operation_worker and fiber
+2. Allowing other fibers to continue working while waiting for thread responses
+3. Integrating seamlessly with the existing `Scheduler`
 
-### ThreadRequest
-
-A value object encapsulating a command to be executed:
-- External ID: Any value suitable as a hash key (String, Symbol, Integer, Object) that identifies the command
-- Subject: The object to call the method on
-- Method: The method to call on the subject
-- Args: Arguments to pass to the method
-
-### ThreadResponse
-
-A value object encapsulating a response:
-- External ID: Matches the ID from the original command
-- Result: The result of the operation
-- Error: Any error that occurred
-- Time Taken: Execution time in seconds
-
-### ThreadPool
-
-Manages a pool of threads that execute commands:
-- Processes commands from a queue
-- Returns responses with matching external IDs
-- Provides clear separation between I/O and scheduling
-
-## Usage
+Usage
+-----
 
 ```ruby
 # In your authority scraper block
@@ -75,20 +60,46 @@ command = ScraperUtils::ProcessRequest.new(
 thread_scheduler.queue_request(command)
 ```
 
-## Configuration
+Configuration
+-------------
 
-The `ThreadPool` can be configured with different pool sizes:
+The followingENV variables affect how `Scheduler` is configured:
 
-```ruby
-# Default is 20 threads
-ScraperUtils::Scheduler.thread_scheduler.shutdown
-ScraperUtils::Scheduler.instance_variable_set(
-  :@thread_scheduler,
-  ScraperUtils::ThreadPool.new(10) # Use 10 threads
-)
-```
+* `MORPH_DISABLE_THREADS=1` disabled the use of threads
+* `MORPH_MAX_WORKERS=N` configures the system to a max of N workers (minimum 1).
+  If N is 1 then this forces the system to process one authority at a time.
 
-## Benefits
+Key Components
+--------------
+
+### ThreadRequest
+
+A value object encapsulating a command to be executed:
+
+- External ID: Any value suitable as a hash key (String, Symbol, Integer, Object) that identifies the command
+- Subject: The object to call the method on
+- Method: The method to call on the subject
+- Args: Arguments to pass to the method
+
+### ThreadResponse
+
+A value object encapsulating a response:
+
+- External ID: Matches the ID from the original command
+- Result: The result of the operation
+- Error: Any error that occurred
+- Time Taken: Execution time in seconds
+
+### ThreadPool
+
+Manages a pool of threads that execute commands:
+
+- Processes commands from a queue
+- Returns responses with matching external IDs
+- Provides clear separation between I/O and scheduling
+
+Benefits
+--------
 
 1. **Improved Throughput**: Process multiple operations simultaneously
 2. **Reduced Total Runtime**: Make better use of wait time during network operations
@@ -96,16 +107,18 @@ ScraperUtils::Scheduler.instance_variable_set(
 4. **Better Geolocation Handling**: Distribute requests across proxies more efficiently
 5. **Testability**: Execute non-network operations for testing concurrency
 
-## Debugging
+Debugging
+---------
 
 When debugging issues with parallel operations, use:
 
-```ruby
+```shell
 # Set debug level to see request/response logging
-export DEBUG=2
+export DEBUG = 2
 ```
 
 The system will log:
+
 - When commands are queued
 - When responses are received
 - How long each operation took
@@ -113,12 +126,13 @@ The system will log:
 
 ## Implementation Details
 
-The integration between `Dcheduler` and `ThreadPool` follows these principles:
+The integration between `Scheduler` and `ThreadPool` follows these principles:
 
-1. `Dcheduler` maintains ownership of all fiber scheduling
+1. `Scheduler` maintains ownership of all fiber scheduling
 2. `ThreadPool` only knows about commands and responses
 3. Communication happens via value objects with validation
 4. State is managed in dedicated `FiberState` objects
 5. Each component has a single responsibility
 
-This design provides a clean separation of concerns while enabling parallel operations within the existing fiber scheduling framework.
+This design provides a clean separation of concerns while enabling parallel operations within the existing fiber
+scheduling framework.
