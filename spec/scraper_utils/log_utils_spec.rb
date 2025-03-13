@@ -57,7 +57,3 @@ RSpec.describe ScraperUtils::LogUtils do
     end
   end
 end
-
-# Also require the detailed specs
-require_relative "log_utils/basic_logging_spec"
-require_relative "log_utils/reporting_spec"

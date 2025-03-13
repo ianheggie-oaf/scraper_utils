@@ -53,6 +53,3 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
   end
 end
 
-# Also require the detailed specs
-require_relative "agent_config/basic_spec"
-require_relative "agent_config/advanced_spec"

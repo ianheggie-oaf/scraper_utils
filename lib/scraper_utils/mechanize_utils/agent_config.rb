@@ -24,7 +24,7 @@ module ScraperUtils
     #   )
     class AgentConfig
       DEFAULT_TIMEOUT = 60
-      DEFAULT_RANDOM_DELAY = 5
+      DEFAULT_RANDOM_DELAY = 0
       DEFAULT_MAX_LOAD = 33.3
       MAX_LOAD_CAP = 50.0
 
@@ -137,7 +137,7 @@ module ScraperUtils
           end
         end
 
-        if @random_delay
+        if @random_delay&.positive
           min_random = Math.sqrt(@random_delay * 3.0 / 13.0)
           @random_range = min_random.round(3)..(3 * min_random).round(3)
         end

@@ -89,25 +89,18 @@ module ScraperUtils
 
     end
 
-    # Returns whether processing of multiple sites is interleaved using fibers
-    # @return [Boolean] true if processing is interleaved using fibers, false otherwise
-    # @note This value is determined by ScraperUtils::RandomizeUtils.random?
-    def self.interleaved?
-      max_workers.positive?
-    end
-
     # Resets the scheduler state. Use before retrying failed authorities.
     def self.reset!
       @operation_registry&.shutdown
       @operation_registry = nil
       @response_queue.close if @response_queue
       @threaded = ENV["MORPH_DISABLE_THREADS"].to_s.empty?
-      @max_workers = [0, ENV.fetch('MORPH_MAX_WORKERS', Constants::DEFAULT_MAX_WORKERS).to_i].max
+      @max_workers = [1, ENV.fetch('MORPH_MAX_WORKERS', Constants::DEFAULT_MAX_WORKERS).to_i].max
       @exceptions = {}
       @totals = Hash.new { 0 }
       @initial_resume_at = Time.now
       @response_queue = Thread::Queue.new if self.threaded?
-      @operation_registry = OperationRegistry.new if self.interleaved?
+      @operation_registry = OperationRegistry.new
       @reset = true
       @timeout = ENV.fetch('MORPH_TIMEOUT', Constants::DEFAULT_TIMEOUT).to_i
       nil
@@ -143,7 +136,7 @@ module ScraperUtils
       if DebugUtils.basic?
         log "Registered #{authority} operation with fiber: #{fiber.object_id} for interleaving"
       end
-      if !interleaved? || operation_registry&.size >= @max_workers
+      if operation_registry&.size >= @max_workers
         log "Running batch of #{operation_registry&.size} operations immediately"
         run_operations
       end
@@ -202,8 +195,7 @@ module ScraperUtils
 
     # ===========================================================
     # @!group Fiber Api
-    # These Methods should be called from the worker's own fiber
-    # but handle being called from the main fiber (eg when MORPH_MAX_WORKERS=0)
+    # These Methods should be called from the worker's own fiber but can be called from the main fiber
 
     # Execute Mechanize network request in parallel using the fiber's thread
     # This allows multiple network I/O requests to be waiting for a response in parallel

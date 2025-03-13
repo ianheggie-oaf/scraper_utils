@@ -15,18 +15,14 @@ RSpec.describe ScraperUtils::Scheduler do
     operation_registry.shutdown if operation_registry
   end
 
-  describe ".threaded and .interleaved?" do
+  describe ".threaded" do
     it "has configurable threading settings" do
       # Test defaults
       expect(described_class.threaded?).to be true
-      expect(described_class.interleaved?).to be true
-      
+
       # Test setting via properties
       described_class.threaded = false
       expect(described_class.threaded?).to be false
-      
-      described_class.max_workers = 0
-      expect(described_class.interleaved?).to be false
     end
   end
   
@@ -48,7 +44,3 @@ RSpec.describe ScraperUtils::Scheduler do
     end
   end
 end
-
-# Also require the detailed specs
-require_relative "scheduler_basics_spec" 
-require_relative "scheduler_operations_spec"

@@ -73,24 +73,8 @@ RSpec.describe ScraperUtils::Scheduler do
     end
   end
 
-  describe ".interleaved?" do
-    it "defaults to true" do
-      expect(described_class.interleaved?).to be true
-    end
-
-    it "Is disabled by MORPH_MAX_WORKERS=0" do
-      expect(described_class.interleaved?).to be true
-      ENV['MORPH_MAX_WORKERS'] = '0'
-      described_class.reset!
-      expect(described_class.interleaved?).to be false
-    ensure
-      ENV['MORPH_MAX_WORKERS'] = nil
-    end
-  end
-
   describe ".reset!" do
     it "Sets defaults" do
-      expect(described_class.interleaved?).to be true
       expect(described_class.send(:exceptions)).to be_a(Hash)
       expect(described_class.send(:totals)[:delay_requested]).to be 0
       expect(described_class.send(:totals)[:poll_sleep]).to be 0
