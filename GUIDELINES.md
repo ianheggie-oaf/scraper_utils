@@ -47,7 +47,8 @@ but if the file is bad, just treat it as missing.
 
 ## Testing Strategies
 
-* Avoid mocking unless really needed, instead
+* AVOID mocking unless really needed (and REALLY avoid mocking your own code), instead
+  * Consider if you can change your own code, whilst keeping it simple, to make it easier to test
   * instantiate a real object to use in the test
   * use mocking facilities provided by the gem (eg Mechanize, Aws etc)
   * use integration tests with WebMock for simple external sites or VCR for more complex.
