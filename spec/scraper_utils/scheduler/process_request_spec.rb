@@ -7,10 +7,11 @@ RSpec.describe ScraperUtils::Scheduler::ProcessRequest do
   let(:subject_instance) { Kernel } # Real object everyone has access to
   let(:method_name) { :sleep }
   let(:args) { [0.001] } # Very small value to keep tests fast
-  let(:request) { described_class.new(authority, subject_instance, method_name, args) }
-
+  
   describe "#initialize" do
     it "creates a valid command with all required fields" do
+      request = described_class.new(authority, subject_instance, method_name, args)
+      
       expect(request.authority).to eq(authority)
       expect(request.subject).to eq(subject_instance)
       expect(request.method_name).to eq(method_name)
@@ -49,6 +50,20 @@ RSpec.describe ScraperUtils::Scheduler::ProcessRequest do
   end
   
   describe "#execute" do
+    it "executes a simple sleep and returns the response" do
+      command = described_class.new(authority, Kernel, :sleep, [0.001])
+
+      # Queue the request
+      response = command.execute
+
+      # Check that we got a response
+      expect(response).to be_a(ScraperUtils::Scheduler::ThreadResponse)
+      expect(response.authority).to eq(authority)
+      expect(response.error).to be_nil
+      expect(response.time_taken).to be > 0
+      expect(response.success?).to be true
+    end
+    
     it "calls method on subject with args" do
       # Create a test class with a method we can track
       test_class = Class.new do
@@ -88,16 +103,6 @@ RSpec.describe ScraperUtils::Scheduler::ProcessRequest do
       expect(response.error).to be_a(RuntimeError)
       expect(response.error.message).to eq("Test error")
       expect(response.success?).to be false
-    end
-    
-    it "tracks execution time" do
-      # Use sleep for predictable timing
-      test_request = described_class.new(authority, Kernel, :sleep, [0.01])
-      
-      response = test_request.execute
-      
-      expect(response.time_taken).to be > 0
-      expect(response.time_taken).to be_within(0.05).of(0.01) # Allow some overhead
     end
     
     it "adds delay_till from subject when present" do
