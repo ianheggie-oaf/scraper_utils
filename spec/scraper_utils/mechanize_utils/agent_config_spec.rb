@@ -13,7 +13,11 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
     ENV["MORPH_AUSTRALIAN_PROXY"] = proxy_url
   end
 
-  after do
+  after(:all) do
+    if Fiber.current != ScraperUtils::Scheduler::Constants::MAIN_FIBER
+      puts "WARNING: Had to resume main fiber"
+      ScraperUtils::Scheduler::Constants::MAIN_FIBER.resume
+    end
     ENV["MORPH_AUSTRALIAN_PROXY"] = nil
     ENV["DEBUG"] = nil
   end

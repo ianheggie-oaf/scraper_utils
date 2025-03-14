@@ -11,6 +11,13 @@ RSpec.describe ScraperUtils::Scheduler do
     described_class.reset!
   end
 
+  after(:all) do
+    if Fiber.current != ScraperUtils::Scheduler::Constants::MAIN_FIBER
+      puts "WARNING: Had to resume main fiber"
+      ScraperUtils::Scheduler::Constants::MAIN_FIBER.resume
+    end
+  end
+
   describe ".execute_requests" do
     pending "FIXME: write specs"
   end

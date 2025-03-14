@@ -67,7 +67,7 @@ module ScraperUtils
         # Reset all configuration options to their default values
         # @return [void]
         def reset_defaults!
-          @default_timeout = ENV.fetch('MORPH_TIMEOUT', DEFAULT_TIMEOUT).to_i # 60
+          @default_timeout = ENV.fetch('MORPH_CLIENT_TIMEOUT', DEFAULT_TIMEOUT).to_i # 60
           @default_compliant_mode = ENV.fetch('MORPH_NOT_COMPLIANT', nil).to_s.empty? # true
           @default_random_delay = ENV.fetch('MORPH_RANDOM_DELAY', DEFAULT_RANDOM_DELAY).to_i # 5
           @default_max_load = ENV.fetch('MORPH_MAX_LOAD', DEFAULT_MAX_LOAD).to_f # 33.3
@@ -192,7 +192,7 @@ module ScraperUtils
                           "australian_proxy=#{@australian_proxy.inspect}"
                         end
         display_args << "compliant_mode" if @compliant_mode
-        display_args << "random_delay=#{@random_delay}" if @random_delay
+        display_args << "random_delay=#{@random_delay}" if @random_delay&.positive?
         display_args << "max_load=#{@max_load}%" if @max_load
         display_args << "disable_ssl_certificate_check" if @disable_ssl_certificate_check
         display_args << "default args" if display_args.empty?

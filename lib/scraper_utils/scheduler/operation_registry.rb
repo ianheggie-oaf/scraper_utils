@@ -22,8 +22,8 @@ module ScraperUtils
       end
 
       # Remove yourself from registry, called from fiber
-      def deregister(key)
-        operation = find(key)
+      def deregister
+        operation = find
         return unless operation
 
         operation.close
@@ -50,8 +50,8 @@ module ScraperUtils
 
       # Removes operations
       def shutdown
-        operations.keys.each do |key|
-          deregister(key)
+        operations.each do |_key, operation|
+          operation.shutdown
         end
       end
 

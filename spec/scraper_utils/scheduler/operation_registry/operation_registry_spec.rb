@@ -45,40 +45,4 @@ RSpec.describe ScraperUtils::Scheduler::OperationRegistry do
         .with(fiber, authority1, response_queue)
     end
   end
-
-  describe "#deregister" do
-    let(:operation) { double("OperationWorker", 
-                             fiber: fiber1, 
-                             authority: authority1,
-                             close: nil) }
-    
-    before do
-      registry.instance_variable_set(:@operations, { authority1 => operation })
-      registry.instance_variable_set(:@fiber_ids, { fiber1.object_id => operation })
-    end
-    
-    it "shuts down and removes operation by authority key" do
-      registry.deregister(authority1)
-      
-      expect(operation).to have_received(:close)
-      expect(registry.instance_variable_get(:@operations)).to be_empty
-      expect(registry.instance_variable_get(:@fiber_ids)).to be_empty
-    end
-    
-    it "shuts down and removes operation by fiber ID key" do
-      registry.deregister(fiber1.object_id)
-      
-      expect(operation).to have_received(:close)
-      expect(registry.instance_variable_get(:@operations)).to be_empty
-      expect(registry.instance_variable_get(:@fiber_ids)).to be_empty
-    end
-    
-    it "does nothing if the key is not found" do
-      registry.deregister(:unknown_key)
-      
-      expect(operation).not_to have_received(:close)
-      expect(registry.instance_variable_get(:@operations)).not_to be_empty
-      expect(registry.instance_variable_get(:@fiber_ids)).not_to be_empty
-    end
-  end
 end

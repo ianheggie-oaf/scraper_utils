@@ -78,8 +78,8 @@ module ScraperUtils
       # On timeout a message will be output and the ruby program will exit with exit code 124.
       # If the timeout <= 3600 (1 hour) then the message will be output but the ruby program won't exit
       #
-      # @return [Integer] Overall process timeout in seconds (default MORPH_TIMEOUT ENV value or 6 hours)
-      attr_accessor :timeout
+      # @return [Integer] Overall process timeout in seconds (default MORPH_RUN_TIMEOUT ENV value or 6 hours)
+      attr_accessor :run_timeout
 
       # Private accessors for internal use
 
@@ -102,7 +102,7 @@ module ScraperUtils
       @response_queue = Thread::Queue.new if self.threaded?
       @operation_registry = OperationRegistry.new
       @reset = true
-      @timeout = ENV.fetch('MORPH_TIMEOUT', Constants::DEFAULT_TIMEOUT).to_i
+      @run_timeout = ENV.fetch('MORPH_RUN_TIMEOUT', Constants::DEFAULT_TIMEOUT).to_i
       nil
     end
 
@@ -125,7 +125,7 @@ module ScraperUtils
           exceptions[authority] = e
         ensure
           # Clean up when done regardless of success/failure
-          operation_registry&.deregister(authority)
+          operation_registry&.deregister
         end
         # no further requests
         nil
@@ -148,7 +148,7 @@ module ScraperUtils
     #
     # @return [Hash] Exceptions that occurred during execution
     def self.run_operations
-      Timeout.timeout(timeout) do
+      Timeout.timeout(run_timeout) do
         count = operation_registry&.size
 
         # Main scheduling loop - process till there is nothing left to do
@@ -162,9 +162,9 @@ module ScraperUtils
         exceptions
       end
     rescue Timeout::Error
-      STDERR.puts "ERROR: Script exceeded maximum allowed runtime of #{(timeout / 3600.0).round(2)} hours!"
+      STDERR.puts "ERROR: Script exceeded maximum allowed runtime of #{(run_timeout / 3600.0).round(2)} hours!"
       STDERR.puts "SQLite operations may have stalled. Forcibly terminating process..."
-      Process.exit!(124) if timeout >= 3600
+      Process.exit!(124) if run_timeout >= 3600
       exceptions
     end
 

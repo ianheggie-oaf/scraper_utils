@@ -175,7 +175,10 @@ module ScraperUtils
         required_fiber = main ? Constants::MAIN_FIBER : @fiber
         return if Fiber.current.object_id == required_fiber.object_id
 
-        raise ArgumentError, "Must be run within #{main ? 'main' : 'own'} fiber!"
+        desc = main ? 'main' : 'own'
+        raise ArgumentError,
+              "Must be run within #{desc} fiber! Required fiber_id: #{required_fiber.object_id}, " \
+                "got: #{Fiber.current.object_id}"
       end
 
       # Clear resume state so the operation won't be resumed

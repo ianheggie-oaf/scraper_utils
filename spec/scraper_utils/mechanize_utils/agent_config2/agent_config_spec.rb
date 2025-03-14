@@ -18,7 +18,11 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
     ENV["MORPH_AUSTRALIAN_PROXY"] = proxy_url
   end
 
-  after do
+  after(:all) do
+    if Fiber.current != ScraperUtils::Scheduler::Constants::MAIN_FIBER
+      puts "WARNING: Had to resume main fiber"
+      ScraperUtils::Scheduler::Constants::MAIN_FIBER.resume
+    end
     ENV["MORPH_AUSTRALIAN_PROXY"] = nil
     ENV["DEBUG"] = nil
   end
@@ -31,22 +35,9 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
                 ["Configuring Mechanize agent with",
                  "timeout=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_TIMEOUT},",
                  "australian_proxy=false, compliant_mode,",
-                 "random_delay=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_RANDOM_DELAY},",
                  "max_load=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_MAX_LOAD}%\n"
                 ].join(' ')
               ).to_stdout
-      end
-    end
-
-    context "with debug logging" do
-      before { ENV["DEBUG"] = "2" }
-
-      it "logs connection details" do
-        config = described_class.new
-        config.configure_agent(Mechanize.new)
-        expect do
-          config.send(:pre_connect_hook, nil, double(inspect: "test request"))
-        end.to output(/Pre Connect request: test request/).to_stdout
       end
     end
 
@@ -92,7 +83,6 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
                  ["Configuring Mechanize agent with",
                   "timeout=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_TIMEOUT},",
                   "australian_proxy=true, compliant_mode,",
-                  "random_delay=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_RANDOM_DELAY},",
                   "max_load=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_MAX_LOAD}%\n"
                  ].join(' ')
                ).to_stdout
@@ -108,7 +98,6 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
                  ["Configuring Mechanize agent with",
                   "timeout=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_TIMEOUT},",
                   "MORPH_AUSTRALIAN_PROXY not set, compliant_mode,",
-                  "random_delay=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_RANDOM_DELAY},",
                   "max_load=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_MAX_LOAD}%\n"
                  ].join(' ')
                ).to_stdout

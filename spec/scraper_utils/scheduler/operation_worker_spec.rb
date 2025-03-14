@@ -8,6 +8,13 @@ RSpec.describe ScraperUtils::Scheduler::OperationWorker do
   let(:main_fiber) { ScraperUtils::Scheduler::Constants::MAIN_FIBER }
   let(:worker_fiber) { Fiber.new { :worker_fiber } }
 
+  after(:all) do
+    if Fiber.current != ScraperUtils::Scheduler::Constants::MAIN_FIBER
+      puts "WARNING: Had to resume main fiber"
+      ScraperUtils::Scheduler::Constants::MAIN_FIBER.resume
+    end
+  end
+
   describe "#initialize" do
     it "creates a valid operation worker" do
       worker = described_class.new(worker_fiber, authority, response_queue)
@@ -28,7 +35,7 @@ RSpec.describe ScraperUtils::Scheduler::OperationWorker do
     it "sets initial state with resume_at in the future" do
       worker = described_class.new(worker_fiber, authority, response_queue)
       
-      expect(worker.resume_at).to be >= Time.now - 0.1 # Allow small time variance
+      expect(worker.resume_at).to be >= Time.now - 0.1 # Allow a small time variance
       expect(worker.instance_variable_get(:@waiting_for_response)).to be false
     end
     

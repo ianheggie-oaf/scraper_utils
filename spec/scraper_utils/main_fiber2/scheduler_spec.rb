@@ -10,6 +10,13 @@ RSpec.describe ScraperUtils::Scheduler do
     described_class.reset!
   end
 
+  after(:all) do
+    if Fiber.current != ScraperUtils::Scheduler::Constants::MAIN_FIBER
+      puts "WARNING: Had to resume main fiber"
+      ScraperUtils::Scheduler::Constants::MAIN_FIBER.resume
+    end
+  end
+
   describe ".threaded" do
     it "defaults to true" do
       expect(described_class.threaded).to be true
@@ -61,15 +68,15 @@ RSpec.describe ScraperUtils::Scheduler do
 
   describe ".timeout" do
     it "defaults to DEFAULT_TIMEOUT" do
-      expect(described_class.timeout).to be ScraperUtils::Scheduler::Constants::DEFAULT_TIMEOUT
+      expect(described_class.run_timeout).to be ScraperUtils::Scheduler::Constants::DEFAULT_TIMEOUT
     end
 
-    it "Is set by MORPH_TIMEOUT ENV variable" do
-      ENV['MORPH_TIMEOUT'] = '42'
+    it "Is set by MORPH_RUN_TIMEOUT ENV variable" do
+      ENV['MORPH_RUN_TIMEOUT'] = '42'
       described_class.reset!
-      expect(described_class.timeout).to be 42
+      expect(described_class.run_timeout).to be 42
     ensure
-      ENV['MORPH_TIMEOUT'] = nil
+      ENV['MORPH_RUN_TIMEOUT'] = nil
     end
   end
 
