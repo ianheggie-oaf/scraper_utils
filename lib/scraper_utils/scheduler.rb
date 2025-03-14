@@ -153,33 +153,8 @@ module ScraperUtils
 
         # Main scheduling loop - process till there is nothing left to do
         until @operation_registry.empty?
-          # Save results from threads in operation state so more operation fibers can be resumed
-          while (thread_response = get_response)
-            operation = @operation_registry.find(thread_response.authority)
-            operation&.save_thread_response(thread_response)
-          end
-
-          delay = Constants::POLL_PERIOD
-          # Find the operation that ready to run with the earliest resume_at
-          operation = @operation_registry.can_resume.first
-
-          if !operation
-            # No fibers ready to run, sleep a short time
-            sleep(delay)
-            @totals[:poll_sleep] += delay
-          elsif !operation.alive?
-            log "WARNING: removing dead operation for #{operation.authority} - it should have cleaned up after itself!"
-            operations.delete(operation.authority)
-          else
-            # Sleep till operation should be resumed, but no longer than POLL_PERIOD
-            # as responses may come in soon that enable an earlier operation to be resumed
-            delay = [(operation.resume_at - Time.now).to_f, delay].min
-            unless delay.positive?
-              @totals[:resume_count] += 1
-              # resume fiber with response to last request
-              operation.resume
-            end
-          end
+          save_thread_responses
+          resume_next_operation
         end
 
         report_summary(count)
@@ -236,6 +211,40 @@ module ScraperUtils
     # ===========================================================
 
     private
+
+    # Save results from threads in operation state so more operation fibers can be resumed
+    def self.save_thread_responses
+      while (thread_response = get_response)
+        operation = @operation_registry&.find(thread_response.authority)
+        operation&.save_thread_response(thread_response)
+      end
+    end
+
+    # Resume next operation or sleep POLL_PERIOD if non are ready
+    def self.resume_next_operation
+      delay = Constants::POLL_PERIOD
+      # Find the operation that ready to run with the earliest resume_at
+      operation = @operation_registry&.can_resume&.first
+
+      if !operation
+        # No fibers ready to run, sleep a short time
+        sleep(delay)
+        @totals[:poll_sleep] += delay
+      elsif !operation.alive?
+        log "WARNING: removing dead operation for #{operation.authority} - it should have cleaned up after itself!"
+        operations.delete(operation.authority)
+      else
+        # Sleep till operation should be resumed, but no longer than POLL_PERIOD
+        # as responses may come in soon that enable an earlier operation to be resumed
+        delay = [(operation.resume_at - Time.now).to_f, delay].min
+        unless delay.positive?
+          @totals[:resume_count] += 1
+          # resume fiber with response to last request
+          operation.resume
+        end
+        operation
+      end
+    end
 
     # Return the next response, returns nil if queue is empty
     #

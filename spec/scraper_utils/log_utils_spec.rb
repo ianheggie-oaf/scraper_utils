@@ -45,7 +45,8 @@ RSpec.describe ScraperUtils::LogUtils do
     it "produces a report with the authority results" do
       expect { described_class.report_on_results([:test_authority], {}) }
         .to output(/Scraping Summary:/).to_stdout
-        .and output(/test_authority/).to_stdout
+      expect { described_class.report_on_results([:test_authority], {}) }
+        .to output(/test_authority/).to_stdout
     end
   end
   

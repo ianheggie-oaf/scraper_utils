@@ -65,27 +65,23 @@ RSpec.describe ScraperUtils::Scheduler::OperationWorker do
       end
 
       it "raises error if Fiber.yield returns nil (worker shutdown)" do
-        # Create a test fiber that will handle our worker operations
-        test_fiber = Fiber.new do
-          # Create a worker inside the test fiber (so we're in the right context)
-          worker = described_class.new(Fiber.current, authority, response_queue)
-          request = TestThreadRequest.new(authority)
-          
-          begin
-            # This will Fiber.yield, and we'll resume it with nil to simulate shutdown
-            worker.submit_request(request)
-            "No error raised" # Should not get here
-          rescue RuntimeError => e
-            e # Return the error
-          end
+        result1 = nil
+        result2 = nil
+        worker = ScraperUtils::Scheduler.register_operation(:test_operation) do
+          puts 'AAA'
+          result1 = ScraperUtils::Scheduler.execute_request('first', :succ, [])
+          puts 'BBB'
+          result2 = ScraperUtils::Scheduler.execute_request('second', :succ, [])
+          puts 'CCC'
         end
-        
+
         # Start the fiber - it will yield during submit_request
-        test_fiber.resume
-        
+        response = worker.fiber.resume nil
+        expect(response).to be :first_yield
+
         # Now resume with nil to simulate shutdown
         error = test_fiber.resume(nil)
-        
+
         # Verify the error
         expect(error).to be_a(RuntimeError)
         expect(error.message).to match(/Terminated fiber for #{authority} as requested/)
@@ -147,36 +143,46 @@ RSpec.describe ScraperUtils::Scheduler::OperationWorker do
       end
     end
   end
-  
+
   describe "#close" do
-    it "cleans up thread resources" do
+    it "cleans up thread resources when aborted" do
       # Create a fiber we'll use as the worker fiber
-      worker_fiber = Fiber.new do |cmd|
-        if cmd == :close
-          # Send back the worker for verification
-          Fiber.yield
-        end
+      executed = false
+      worker = ScraperUtils::Scheduler.register_operation(:test_operation) do
+        executed = 1
+        ScraperUtils::Scheduler.execute_request('aa', :succ, [])
+        executed = 2
       end
-      worker_fiber.resume # Start the fiber
-      
-      # Create a worker with our test fiber 
-      worker = described_class.new(worker_fiber, authority, response_queue)
-      
+
+      # Verify state for active worker
+      expect(worker.instance_variable_get(:@request_queue)).to be_a Thread::Queue
+      expect(worker.instance_variable_get(:@thread)).to be_a Thread
+      expect(worker.instance_variable_get(:@resume_at)).to be_a Time
+      expect(worker.instance_variable_get(:@response)).to be_nil
+      expect(worker.instance_variable_get(:@waiting_for_response)).to be false
+
       # Prepare the request queue and thread for tests
       request_queue = worker.instance_variable_get(:@request_queue)
       thread = worker.instance_variable_get(:@thread)
-      
+
       # Track if methods are called
       allow(request_queue).to receive(:close).and_call_original
       allow(thread).to receive(:join).and_call_original
-      
-      # Run close within the worker fiber context
-      worker_fiber.resume(:close)
-      
+
+      # Start the fiber running
+      request = worker_fiber.resume(:start)
+      puts "REQUEST: #{request.inspect}"
+
+      expect(worker.instance_variable_get(:@response)).to be_nil
+      expect(worker.instance_variable_get(:@waiting_for_response)).to be true
+
+      # Abort
+      worker_fiber.resume(nil)
+
       # These will be called from inside the fiber
       expect(request_queue).to have_received(:close)
       expect(thread).to have_received(:join)
-      
+
       # Verify state is cleared
       expect(worker.instance_variable_get(:@request_queue)).to be_nil
       expect(worker.instance_variable_get(:@thread)).to be_nil
@@ -184,13 +190,13 @@ RSpec.describe ScraperUtils::Scheduler::OperationWorker do
       expect(worker.instance_variable_get(:@response)).to be_nil
       expect(worker.instance_variable_get(:@waiting_for_response)).to be false
     end
-    
+
     it "raises error if called from main fiber" do
       fiber = Fiber.new { Fiber.yield }
       fiber.resume # Start the fiber
-      
+
       worker = described_class.new(fiber, authority, response_queue)
-      
+
       # Call close from main fiber - this should raise an error
       expect { worker.close }.to raise_error(ArgumentError, /Must be run within own fiber/)
     end

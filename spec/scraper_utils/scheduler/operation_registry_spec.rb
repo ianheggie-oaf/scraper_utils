@@ -84,19 +84,27 @@ RSpec.describe ScraperUtils::Scheduler::OperationRegistry do
     it "manages the registry state" do
       expect(registry.empty?).to be true
       expect(registry.size).to eq(0)
-      
-      # Add some operations
-      registry.instance_variable_set(:@operations, { 
-        authority1 => double("Op1", close: nil), 
-        authority2 => double("Op2", close: nil) 
-      })
-      
+      fiber1_ran = false
+      fiber2_ran = false
+      fiber1 = Fiber.new do
+        fiber1_ran = true
+      end
+      fiber2 = Fiber.new do
+        fiber2_ran = true
+      end
+      registry.register(fiber1, :authority1)
+      registry.register(fiber2, :authority2)
+
       expect(registry.empty?).to be false
       expect(registry.size).to eq(2)
-      
+      expect(fiber1_ran).to be false
+      expect(fiber2_ran).to be false
+
       # Shut down
       registry.shutdown
-      
+
+      expect(fiber1_ran).to be true
+      expect(fiber2_ran).to be true
       expect(registry.empty?).to be true
       expect(registry.size).to eq(0)
     end

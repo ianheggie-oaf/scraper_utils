@@ -28,6 +28,9 @@ module ScraperUtils
       # @return [Thread] Thread used
       attr_reader :thread
 
+      # @return [Thread::Queue] The request queue for the thread
+      attr_reader :request_queue
+
       def self.next_resume_at
         @next_resume_at = [@next_resume_at, Time.now - 0.001].compact.max + 0.001
       end

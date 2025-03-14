@@ -21,7 +21,7 @@ module ScraperUtils
         @fiber_ids[operation.fiber.object_id] = operation
       end
 
-      # Flag for shutdown and remove from registry
+      # Remove yourself from registry, called from fiber
       def deregister(key)
         operation = find(key)
         return unless operation

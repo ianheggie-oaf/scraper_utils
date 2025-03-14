@@ -137,7 +137,7 @@ module ScraperUtils
           end
         end
 
-        if @random_delay&.positive
+        if @random_delay&.positive?
           min_random = Math.sqrt(@random_delay * 3.0 / 13.0)
           @random_range = min_random.round(3)..(3 * min_random).round(3)
         end
