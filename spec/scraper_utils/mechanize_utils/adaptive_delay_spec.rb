@@ -49,51 +49,15 @@ RSpec.describe ScraperUtils::MechanizeUtils::AdaptiveDelay do
       expect(delay).to be_within(0.1).of(23.5) # start to come down immediately
     end
 
-    it "uses 4x first response time as initial delay" do
-      delay = delay_handler.next_delay(test_url, 1.5)
-      expect(delay).to eq(6.0) # 1.5 * 4.0
-    end
-
-    it "trends towards 4x response time" do
+    it "trends 25% towards 4x response time each call" do
       # Multiple calls should trend towards 4x the response time
-      delay_handler.next_delay(test_url, 1.0)
+      trend = delay_handler.next_delay(test_url, 1.0)
+      expect(trend).to be_within(0.1).of(4.0)
       10.times do
-        delay = delay_handler.next_delay(test_url, 1.0)
-        expect(delay).to be_within(0.1).of(4.0)
+        delay = delay_handler.next_delay(test_url, 2.0)
+        trend = (8 + 3 * trend) / 4.0
+        expect(delay).to be_within(0.1).of(trend)
       end
-    end
-
-    it "smooths changes using 3/4 ratio" do
-      # Start with response time of 1.0 (initial delay 4.0)
-      first_delay = delay_handler.next_delay(test_url, 1.0)
-      expect(first_delay).to be_within(0.1).of(4.0)
-
-      # Sudden change to response time of 2.0
-      # New delay should be (4 * 4.0 + 8.0) / 5 = 4.4
-      next_delay = delay_handler.next_delay(test_url, 2.0)
-      expect(next_delay).to be_within(0.1).of(5.0)
-      next_delay = delay_handler.next_delay(test_url, 2.0)
-      expect(next_delay).to be_within(0.1).of(5.75)
-      next_delay = delay_handler.next_delay(test_url, 2.0)
-      expect(next_delay).to be_within(0.1).of(6.31)
-      next_delay = delay_handler.next_delay(test_url, 2.0)
-      expect(next_delay).to be_within(0.1).of(6.73)
-      next_delay = delay_handler.next_delay(test_url, 2.0)
-      expect(next_delay).to be_within(0.1).of(7.05)
-      next_delay = delay_handler.next_delay(test_url, 2.0)
-      expect(next_delay).to be_within(0.1).of(7.29)
-      next_delay = delay_handler.next_delay(test_url, 2.0)
-      expect(next_delay).to be_within(0.1).of(7.47)
-      next_delay = delay_handler.next_delay(test_url, 2.0)
-      expect(next_delay).to be_within(0.1).of(7.60)
-      next_delay = delay_handler.next_delay(test_url, 2.0)
-      expect(next_delay).to be_within(0.1).of(7.70)
-      next_delay = delay_handler.next_delay(test_url, 2.0)
-      expect(next_delay).to be_within(0.1).of(7.77)
-      next_delay = delay_handler.next_delay(test_url, 2.0)
-      expect(next_delay).to be_within(0.1).of(7.83)
-      next_delay = delay_handler.next_delay(test_url, 2.0)
-      expect(next_delay).to be_within(0.1).of(7.87)
     end
 
     it "restricts min delay value" do

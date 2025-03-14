@@ -21,6 +21,23 @@ RSpec.describe ScraperUtils::DebugUtils do
         expect(described_class.debug?).to be false
       end
     end
+
+    context "when MORPH_DEBUG environment variable is set" do
+      before { ENV[ScraperUtils::DebugUtils::MORPH_DEBUG_ENV_VAR] = "3" }
+      after { ENV.delete(ScraperUtils::DebugUtils::MORPH_DEBUG_ENV_VAR) }
+
+      it "returns true" do
+        expect(described_class.debug?).to be true
+      end
+    end
+
+    context "when MORPH_DEBUG environment variable is not set" do
+      before { ENV.delete(ScraperUtils::DebugUtils::MORPH_DEBUG_ENV_VAR) }
+
+      it "returns false" do
+        expect(described_class.debug?).to be false
+      end
+    end
   end
 
   describe ".debug_request" do

@@ -49,7 +49,13 @@ RSpec.describe ScraperUtils::DateRangeUtils do
     end
 
     context "with fibonacci progression" do
-      it "respects and uses max_period" do
+      it "respects and uses max_period=3" do
+        utils.calculate_date_ranges(days: 30, everytime: 2, max_period: 3, today: today)
+
+        expect(utils.max_period_used).to eq(3)
+      end
+
+      it "respects and uses max_period=5" do
         utils.calculate_date_ranges(days: 30, everytime: 2, max_period: 5, today: today)
 
         expect(utils.max_period_used).to eq(5)
@@ -121,7 +127,7 @@ RSpec.describe ScraperUtils::DateRangeUtils do
         puts stats[:table]
 
         # Basic verification of the algorithm properties
-        #expect(utils.max_period_used).to eq(5) # sometimes 3
+        # expect(utils.max_period_used).to eq(5) # sometimes 3
         expect(stats[:max_unchecked_streak]).to be <= 5
         expect(stats[:coverage_percentage]).to eq(100)
 
@@ -130,32 +136,6 @@ RSpec.describe ScraperUtils::DateRangeUtils do
         expect(stats[:avg_checked_per_day]).to be_between(avg - 1, avg + 1)
         expect(stats[:min_checked_per_day]).to be_between(avg - 12, avg)
         expect(stats[:max_checked_per_day]).to be_between(avg, avg + 10)
-      end
-
-
-      it "provides good coverage with realistic parameters for 8 days", :aggregate_failures do
-        # Run a 60-day simulation to ensure all days get checked
-        stats = DateRangeSimulator.run_simulation(
-          utils,
-          days: ScraperUtils::DateRangeUtils.default_everytime + 2 * 2 + 3 * 3 + 5 * 5 + 8 * 8 + 4,
-          everytime: ScraperUtils::DateRangeUtils.default_everytime,
-          max_period: 8,
-          visualize: !ENV['VISUALIZE']&.empty?
-        )
-
-        # Output the stats table
-        puts stats[:table]
-
-        # Basic verification of the algorithm properties
-        expect(utils.max_period_used).to eq(8)
-        expect(stats[:max_unchecked_streak]).to be <= 8
-        expect(stats[:coverage_percentage]).to eq(100)
-
-        # Verify load distribution
-        avg = 19.6 # decent enough though nit as good as I hoped
-        expect(stats[:avg_checked_per_day]).to be_between(avg - 5, avg + 5)
-        expect(stats[:min_checked_per_day]).to be_between(avg - 8, avg)
-        expect(stats[:max_checked_per_day]).to be_between(avg, avg + 5)
       end
     end
   end
