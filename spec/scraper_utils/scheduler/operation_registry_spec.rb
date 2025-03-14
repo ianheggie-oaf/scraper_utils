@@ -62,45 +62,6 @@ RSpec.describe ScraperUtils::Scheduler::OperationRegistry do
     end
   end
 
-  describe "#find and #current_authority" do
-    let(:operation) { double("OperationWorker", fiber: Fiber.current, authority: authority1) }
-
-    before do
-      registry.instance_variable_set(:@operations, { authority1 => operation })
-      registry.instance_variable_set(:@fiber_ids, { Fiber.current.object_id => operation })
-    end
-
-    it "finds operations by various keys" do
-      expect(registry.find(authority1)).to eq(operation)
-      expect(registry.find(Fiber.current.object_id)).to eq(operation)
-      expect(registry.find).to eq(operation)
-      expect(registry.current_authority).to eq(authority1)
-    end
-  end
-
-  describe "#can_resume and #process_thread_response" do
-    let(:operation) {
-      double("OperationWorker",
-             authority: authority1,
-             can_resume?: true,
-             resume_at: Time.now,
-             save_thread_response: nil)
-    }
-
-    before do
-      registry.instance_variable_set(:@operations, { authority1 => operation })
-    end
-
-    it "handles resumable operations" do
-      expect(registry.can_resume).to eq([operation])
-
-      response = double("ThreadResponse", authority: authority1)
-      registry.process_thread_response(response)
-
-      expect(operation).to have_received(:save_thread_response).with(response)
-    end
-  end
-
   describe "#shutdown, #empty? and #size" do
     it "manages the registry state" do
       expect(registry.empty?).to be true

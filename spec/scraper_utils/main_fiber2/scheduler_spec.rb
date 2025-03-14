@@ -92,4 +92,22 @@ RSpec.describe ScraperUtils::Scheduler do
       expect(described_class.send(:reset)).to be true
     end
   end
+  
+  describe ".register_operation" do
+    it "registers operations that execute their blocks" do
+      executed = false
+
+      described_class.register_operation(:test_op) do
+        executed = true
+        :done
+      end
+
+      # Run operations to completion
+      Timeout.timeout(1) do
+        described_class.run_operations
+      end
+
+      expect(executed).to be true
+    end
+  end
 end
