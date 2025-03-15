@@ -110,4 +110,98 @@ RSpec.describe ScraperUtils::Scheduler do
       expect(executed).to be true
     end
   end
+
+  describe ".run_operations" do
+    context "with timeouts" do
+      before do
+        @original_timeout = described_class.run_timeout
+      end
+
+      after do
+        described_class.run_timeout = @original_timeout
+      end
+
+      it "terminates long-running operations after timeout" do
+        described_class.run_timeout = 0.2 # 200ms
+        exit_queue = Thread::Queue.new
+        progress = nil
+
+        # Register a long-running operation and track progress
+        described_class.register_operation(:test_timeout) do
+          progress = :started
+          Timeout.timeout(10) do
+            exit_queue.pop
+            progress = :interrupted
+          end
+        end
+
+        allow(ScraperUtils::LogUtils).to receive(:log)
+        # Mock Process.exit! to prevent actual exit during test
+        allow(Process).to receive(:exit!) do |status|
+          exit_queue.push :called
+        end
+
+        described_class.run_operations
+
+        expect(Process).to have_received(:exit!).with(124)
+        expect(ScraperUtils::LogUtils).to have_received(:log).with(/ERROR: Script exceeded maximum allowed runtime/).once
+        expect(progress).to eq(:interrupted)
+      end
+
+      it "kills the monitoring thread when operations complete normally" do
+        threads_before = Thread.list.dup
+
+        # So something very quick
+        described_class.register_operation(:quick_op) { :done }
+        described_class.run_operations
+
+        # Verify all threads created during operations are no longer alive
+        new_threads = Thread.list - threads_before
+        expect(new_threads.select(&:alive?)).to be_empty
+      end
+    end
+
+    context "with MORPH_MAX_WORKERS=2 and DEBUG=1 set" do
+      before do
+        @prev_debug = ENV['DEBUG']
+        ENV['MORPH_MAX_WORKERS'] = '2'
+        ENV['DEBUG'] = '1'
+      end
+
+      after do
+        ENV['MORPH_MAX_WORKERS'] = nil
+        ENV['DEBUG'] = @prev_debug
+        described_class.reset!
+      end
+
+      it "Runs operations when it hits MORPH_MAX_WORKERS limit" do
+        described_class.reset!
+        registry = described_class.send(:operation_registry)
+        ran = []
+
+        expect(registry.size).to eq(0)
+        described_class.register_operation(:test_op1) do
+          ran << :test_op1
+        end
+        expect(registry.size).to eq(1)
+        expect(ran).to be_empty
+        described_class.register_operation(:test_op2) do
+          ran << :test_op2
+        end
+        expect(registry.size).to eq(0)
+        expect(ran).to eq([:test_op1, :test_op2])
+
+        described_class.register_operation(:test_op3) do
+          ran << :test_op3
+        end
+        expect(registry.size).to eq(1)
+        expect(ran).to eq([:test_op1, :test_op2])
+
+        described_class.run_operations
+        expect(registry.size).to eq(0)
+        expect(ran).to eq([:test_op1, :test_op2, :test_op3])
+      end
+
+    end
+  end
 end

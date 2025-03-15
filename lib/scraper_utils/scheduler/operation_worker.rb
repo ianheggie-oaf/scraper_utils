@@ -63,7 +63,7 @@ module ScraperUtils
         validate_fiber(main: false)
         # Signal thread to finish processing, then wait for it
         @request_queue&.close
-        @thread&.join
+        @thread&.join(60)
         # drop references for GC
         @request_queue = nil
         @thread = nil
@@ -125,7 +125,7 @@ module ScraperUtils
 
         clear_resume_state
         if @fiber&.alive?
-          # Trigger other fiber to raise an error and thus call shutdown
+          # Trigger fiber to raise an error and thus call deregister
           @fiber.resume(nil)
         end
       end
@@ -173,12 +173,19 @@ module ScraperUtils
 
       def validate_fiber(main: false)
         required_fiber = main ? Constants::MAIN_FIBER : @fiber
-        return if Fiber.current.object_id == required_fiber.object_id
+        current_id = Fiber.current.object_id
+        return if current_id == required_fiber.object_id
 
-        desc = main ? 'main' : 'own'
+        desc = main ? 'main' : 'worker'
+        we_are = if current_id == Constants::MAIN_FIBER.object_id
+                   'main'
+                 elsif current_id == @fiber.object_id
+                   'worker'
+                 else
+                   'other'
+                 end
         raise ArgumentError,
-              "Must be run within #{desc} fiber! Required fiber_id: #{required_fiber.object_id}, " \
-                "got: #{Fiber.current.object_id}"
+              "Must be run within the #{desc} not #{we_are} fiber!"
       end
 
       # Clear resume state so the operation won't be resumed

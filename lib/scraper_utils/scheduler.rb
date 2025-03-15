@@ -76,7 +76,6 @@ module ScraperUtils
 
       # Returns the run_operations timeout
       # On timeout a message will be output and the ruby program will exit with exit code 124.
-      # If the timeout <= 3600 (1 hour) then the message will be output but the ruby program won't exit
       #
       # @return [Integer] Overall process timeout in seconds (default MORPH_RUN_TIMEOUT ENV value or 6 hours)
       attr_accessor :run_timeout
@@ -134,10 +133,10 @@ module ScraperUtils
       operation = operation_registry&.register(fiber, authority)
 
       if DebugUtils.basic?
-        log "Registered #{authority} operation with fiber: #{fiber.object_id} for interleaving"
+        LogUtils.log "Registered #{authority} operation with fiber: #{fiber.object_id} for interleaving"
       end
       if operation_registry&.size >= @max_workers
-        log "Running batch of #{operation_registry&.size} operations immediately"
+        LogUtils.log "Running batch of #{operation_registry&.size} operations immediately"
         run_operations
       end
       # return operation for ease of testing
@@ -148,24 +147,30 @@ module ScraperUtils
     #
     # @return [Hash] Exceptions that occurred during execution
     def self.run_operations
-      Timeout.timeout(run_timeout) do
-        count = operation_registry&.size
-
-        # Main scheduling loop - process till there is nothing left to do
-        until @operation_registry.empty?
-          save_thread_responses
-          resume_next_operation
-        end
-
-        report_summary(count)
-
-        exceptions
+      monitor_run_time = Thread.new do
+        sleep run_timeout
+        desc = "#{(run_timeout / 3600.0).round(1)} hours"
+        desc = "#{(run_timeout / 60.0).round(1)} minutes" if run_timeout < 100 * 60
+        desc = "#{run_timeout} seconds" if run_timeout < 100
+        LogUtils.log "ERROR: Script exceeded maximum allowed runtime of #{desc}!\n" \
+                       "Forcibly terminating process!"
+        Process.exit!(124)
       end
-    rescue Timeout::Error
-      STDERR.puts "ERROR: Script exceeded maximum allowed runtime of #{(run_timeout / 3600.0).round(2)} hours!"
-      STDERR.puts "SQLite operations may have stalled. Forcibly terminating process..."
-      Process.exit!(124) if run_timeout >= 3600
+      count = operation_registry&.size
+
+      # Main scheduling loop - process till there is nothing left to do
+      until @operation_registry.empty?
+        save_thread_responses
+        resume_next_operation
+      end
+
+      report_summary(count)
+
       exceptions
+    ensure
+      # Kill the monitoring thread if we finish normally
+      monitor_run_time.kill if monitor_run_time.alive?
+      monitor_run_time.join(2)
     end
 
     # ===========================================================
@@ -217,6 +222,7 @@ module ScraperUtils
       while (thread_response = get_response)
         operation = @operation_registry&.find(thread_response.authority)
         operation&.save_thread_response(thread_response)
+        LogUtils.log "WARNING: orphaned thread response ignored: #{thread_response.inspect}", thread_response.authority
       end
     end
 
@@ -224,22 +230,25 @@ module ScraperUtils
     def self.resume_next_operation
       delay = Constants::POLL_PERIOD
       # Find the operation that ready to run with the earliest resume_at
-      operation = @operation_registry&.can_resume&.first
+      can_resume_operations = @operation_registry&.can_resume
+      operation = can_resume_operations&.first
 
       if !operation
-        # No fibers ready to run, sleep a short time
+        # All the fibers must be waiting for responses, so sleep a bit to allow the responses to arrive
+        @operation_registry&.cleanup_zombies
         sleep(delay)
-        @totals[:poll_sleep] += delay
-      elsif !operation.alive?
-        log "WARNING: removing dead operation for #{operation.authority} - it should have cleaned up after itself!"
-        operations.delete(operation.authority)
+        @totals[:wait_response] += delay
       else
-        # Sleep till operation should be resumed, but no longer than POLL_PERIOD
-        # as responses may come in soon that enable an earlier operation to be resumed
         delay = [(operation.resume_at - Time.now).to_f, delay].min
-        unless delay.positive?
+        if delay.positive?
+          # Wait a bit for a fiber to be ready to run
+          sleep(delay)
+          waiting_for_delay = delay * can_resume_operations&.size.to_f / (@operation_registry&.size || 1)
+          @totals[:wait_delay] += waiting_for_delay
+          @totals[:wait_response] += delay - waiting_for_delay
+        else
           @totals[:resume_count] += 1
-          # resume fiber with response to last request
+          # resume fiber with response to last request that is ready to be resumed now
           operation.resume
         end
         operation
@@ -260,14 +269,17 @@ module ScraperUtils
     end
 
     def self.report_summary(count)
-      percent_polling = 0
-      if @totals[:delay_requested].positive?
-        percent_polling = (100.0 * @totals[:poll_sleep] / @totals[:delay_requested]).round(1)
+      wait_delay_percent = 0
+      wait_response_percent = 0
+      delay_requested = [@totals[:wait_delay], @totals[:wait_response]].sum
+      if delay_requested.positive?
+        wait_delay_percent = (100.0 * @totals[:wait_delay] / delay_requested).round(1)
+        wait_response_percent = (100.0 * @totals[:wait_response] / delay_requested).round(1)
       end
       puts
       LogUtils.log "Scheduler processed #{@totals[:resume_count]} calls for #{count} registrations, " \
-                     "waiting #{percent_polling}% (#{@totals[:poll_sleep]&.round(1)}) of the " \
-                     "#{@totals[:delay_requested]&.round(1)} seconds requested."
+                     "with #{wait_delay_percent}% of #{delay_requested.round(1)} seconds spent keeping under max_load, " \
+                     "and #{wait_response_percent}% waiting for network I/O requests."
       puts
     end
   end

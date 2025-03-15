@@ -18,8 +18,18 @@ RSpec.describe ScraperUtils::Scheduler do
     end
   end
 
-  describe ".execute_requests" do
-    pending "FIXME: write specs"
+  describe ".execute_request" do
+    it "executes operations" do
+
+      result = nil
+      described_class.register_operation(:test_authority) do
+        result = ScraperUtils::Scheduler.execute_request('aaa', :succ, [])
+      end
+
+      described_class.run_operations
+
+      expect(result).to eq 'aab'
+    end
   end
 
   describe ".current_authority" do

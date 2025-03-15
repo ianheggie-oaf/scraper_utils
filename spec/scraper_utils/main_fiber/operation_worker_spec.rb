@@ -51,7 +51,7 @@ RSpec.describe ScraperUtils::Scheduler::OperationWorker do
 
       # Run the test
       expect { test_fiber.resume }
-        .to raise_error(ArgumentError, /Must be run within main fiber/)
+        .to raise_error(ArgumentError, /Must be run within the main not other fiber/)
     end
   end
 

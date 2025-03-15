@@ -132,7 +132,7 @@ module ScraperUtils
           unless uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
             raise URI::InvalidURIError, "Proxy URL must start with http:// or https://"
           end
-          unless uri.host && uri.port
+          unless !uri.host.to_s.empty? && uri.port&.positive?
             raise URI::InvalidURIError, "Proxy URL must include host and port"
           end
         end

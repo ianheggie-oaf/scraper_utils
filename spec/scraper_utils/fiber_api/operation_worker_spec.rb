@@ -129,14 +129,66 @@ RSpec.describe ScraperUtils::Scheduler::OperationWorker do
   end
 
   describe "#close" do
+    it "releases resources and clears state from within worker fiber" do
+      worker = nil
+      fiber = Fiber.new do
+        worker&.close
+        :the_end
+      end
+      worker = described_class.new(fiber, authority, response_queue)
+
+      expect(worker.request_queue).to be_a(Thread::Queue)
+      expect(worker.thread).to be_a(Thread)
+      worker.instance_variable_set(:@resume_at, :a_resume_at)
+      worker.instance_variable_set(:@response, :some_response)
+      worker.instance_variable_set(:@waiting_for_response, :waiting)
+
+      expect(fiber.resume).to eq(:the_end)
+
+      # check resources are released and state cleared
+      expect(worker.request_queue).to be_nil
+      expect(worker.thread).to be_nil
+      expect(worker.resume_at).to be_nil
+      expect(worker.response).to be_nil
+      expect(worker.waiting_for_response).to be false
+    end
+
     it "raises error if called from main fiber" do
-      fiber = Fiber.new { Fiber.yield }
-      fiber.resume # Start the fiber
+      fiber = Fiber.new { :the_end }
 
       worker = described_class.new(fiber, authority, response_queue)
 
       # Call close from main fiber - this should raise an error
-      expect { worker.close }.to raise_error(ArgumentError, /Must be run within own fiber/)
+      expect { worker.close }.to raise_error(ArgumentError, /Must be run within the worker not main fiber/)
+    end
+  end
+
+  describe "#validate_fiber" do
+    it "raises error when in wrong fiber context" do
+      worker = nil
+      test_fiber = Fiber.new do
+        worker.send(:validate_fiber, main: true)
+      end
+      worker = described_class.new(test_fiber, authority, response_queue)
+
+      expect { test_fiber.resume }.to raise_error(ArgumentError, /Must be run within the main not worker fiber/)
+
+      # When called with main: false from main fiber, should raise error
+      expect {
+        worker.send(:validate_fiber, main: false)
+      }.to raise_error(ArgumentError, /Must be run within the worker not main fiber/)
+    end
+
+    it "doesn't raise error when in correct fiber context" do
+      worker = nil
+      test_fiber = Fiber.new do
+        worker.send(:validate_fiber, main: false)
+      end
+      worker = described_class.new(test_fiber, authority, response_queue)
+
+      expect(test_fiber.resume).to be_nil
+      # When called with main: false from main fiber, should raise error
+      expect(worker.send(:validate_fiber, main: true)).to be_nil
     end
   end
 end

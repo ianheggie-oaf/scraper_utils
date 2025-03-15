@@ -75,6 +75,18 @@ module ScraperUtils
           .sort_by(&:resume_at)
       end
 
+      # Cleanup dead fibers that haven't removed themselves so we don't loop forever
+      def cleanup_zombies
+        dead_operations = @operations.values.reject(&:alive?)
+
+        dead_operations.each do |operation|
+          LogUtils.log "WARNING: removing dead operation for #{operation.authority} - it should have cleaned up after itself!"
+          operation.shutdown
+          @operations.delete(operation.authority)
+          @fiber_ids.delete(operation.fiber.object_id)
+        end
+      end
+
       # Save the thread response into the thread and mark that it can continue
       def process_thread_response(response)
         operation = find(response.authority)
