@@ -12,8 +12,8 @@ records:
 
 - Always checks the most recent 4 days daily (configurable)
 - Progressively reduces search frequency for older records
-- Uses a Fibonacci-like progression to create natural, efficient search intervals
-- Configurable `max_period` (default is 3 days)
+- Uses a progression from each 2 days and upwards to create an efficient search intervals
+- Configurable `max_period` (default is 2 days)
 - Merges adjacent search ranges and handles the changeover in search frequency by extending some searches
 
 Example usage in your scraper:
@@ -28,11 +28,11 @@ date_ranges.each do |from_date, to_date, _debugging_comment|
 end
 ```
 
-Typical server load reductions:
+Typical server load compared to search all days each time:
 
-* Max period 2 days : ~42% of the 33 days selected
-* Max period 3 days : ~37% of the 33 days selected (default)
-* Max period 5 days : ~35% (or ~31% when days = 45)
+* Max period 2 days : ~59% of the 33 days selected (default, alternates between 57% and 61% covered)
+* Max period 3 days : ~50% of the 33 days selected (varies much more - between 33 and 67%)
+* Max period 4 days : ~46% (more efficient if you search back 50 or more days, varies between 15 and 61%)
 
 See the [DateRangeUtils class documentation](https://rubydoc.info/gems/scraper_utils/ScraperUtils/DateRangeUtils) for customizing defaults and passing options.
 

@@ -171,7 +171,7 @@ module DateRangeSimulator
       t.add_row ["Max Period", stats[:max_period], ""]
       t.add_row ["Coverage", "#{stats[:coverage_percentage]}%", ""]
       t.add_row ["Unchecked Days", stats[:unchecked_days], "Should be zero, was: #{unchecked_dates.inspect}"]
-      t.add_row ["Max Unchecked Streak", stats[:max_unchecked_streak], "Should be <= #{max_period}"]
+      t.add_row ["Max Unchecked Streak", stats[:max_unchecked_streak], "Should be < #{max_period}"]
       t.add_row ["Avg Checked Per Day%", stats[:avg_checked_per_day], "Should be approx #{(100 / max_period).round(1)}"]
       t.add_row ["Min Checked Per Day%", stats[:min_checked_per_day], ""]
       t.add_row ["Max Checked Per Day%", stats[:max_checked_per_day], ""]
