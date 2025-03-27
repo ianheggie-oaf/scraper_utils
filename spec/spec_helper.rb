@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "bundler/setup"
+
 require "simplecov"
 require "simplecov-console"
 require "webmock/rspec"
@@ -19,7 +21,6 @@ SimpleCov.formatter = SimpleCov::Formatter::MultiFormatter.new(
   ]
 )
 
-require "bundler/setup"
 require "rspec"
 
 # Clear ENV variables that affect tests:

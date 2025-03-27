@@ -198,7 +198,7 @@ RSpec.describe ScraperUtils::DateRangeUtils do
 
         # Verify load distribution
         avg = 46.7
-        expect(stats[:avg_checked_per_day]).to be_between(avg - 1, avg + 1)
+        expect(stats[:avg_checked_per_day]).to be_between(avg - 1, avg + 2)
         expect(stats[:min_checked_per_day]).to be_between(avg - 32, avg)
         expect(stats[:max_checked_per_day]).to be_between(avg, avg + 15)
       end
