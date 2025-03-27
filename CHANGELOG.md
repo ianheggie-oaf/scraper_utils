@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0 - 2025-03-16
+
+* Add threads for more efficient scraping
+* Adjust defaults for more efficient scraping, retaining just response based delays by default
+* Correct and simplify date range utilities so everything is checked at least `max_period` days
+* Release Candidate for v1.0.0, subject to testing in production
+
 ## 0.5.1 - 2025-03-05
 
 * Remove duplicated example code in docs

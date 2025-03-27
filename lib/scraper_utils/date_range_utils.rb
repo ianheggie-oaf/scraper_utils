@@ -3,7 +3,7 @@
 module ScraperUtils
   class DateRangeUtils
     MERGE_ADJACENT_RANGES = true
-    PERIODS = [2, 3, 5, 8].freeze
+    PERIODS = [2, 3, 4].freeze
 
     class << self
       # @return [Integer] Default number of days to cover
@@ -33,7 +33,7 @@ module ScraperUtils
       def reset_defaults!
         @default_days = ENV.fetch('MORPH_DAYS', 33).to_i # 33
         @default_everytime = ENV.fetch('MORPH_EVERYTIME', 4).to_i # 4
-        @default_max_period = ENV.fetch('MORPH_MAX_PERIOD', 3).to_i # 3
+        @default_max_period = ENV.fetch('MORPH_MAX_PERIOD', 2).to_i # 3
       end
     end
 
@@ -46,8 +46,8 @@ module ScraperUtils
     # Generates one or more date ranges to check the most recent daily through to checking each max_period
     # There is a graduated schedule from the latest `everytime` days through to the oldest of `days` dates which is checked each `max_period` days.
     # @param days [Integer, nil] create ranges that cover the last `days` dates
-    # @param everytime [Integer, nil] Always include the latest `everytime` out of `days` dates
-    # @param max_period [Integer, nil] the last `days` dates must be checked at least every `max_period` days
+    # @param everytime [Integer, nil] Always include the latest `everytime` out of `days` dates (minimum 1)
+    # @param max_period [Integer, nil] the last `days` dates must be checked at least every `max_period` days (1..4)
     # @param today [Date, nil] overrides the default determination of today at UTC+09:30 (middle of Australia)
     # @return [Array{[Date, Date, String]}] being from_date, to_date and a comment
     #
@@ -58,7 +58,7 @@ module ScraperUtils
     def calculate_date_ranges(days: nil, everytime: nil, max_period: nil, today: nil)
       _calculate_date_ranges(
         Integer(days || self.class.default_days),
-        Integer(everytime || self.class.default_everytime),
+        [1, Integer(everytime || self.class.default_everytime)].max,
         Integer(max_period || self.class.default_max_period),
         today || Time.now(in: '+09:30').to_date
       )
@@ -76,84 +76,43 @@ module ScraperUtils
         # cover everything everytime
         return [[today + 1 - days, today, "everything"]]
       end
-
       max_period = valid_periods.max
+      @max_period_used = max_period
 
-      run_number = today.to_date.jd
-      ranges = []
-      if everytime.positive?
-        ranges << [to_date + 1 - everytime, to_date, "everytime"]
-        days -= everytime
-        to_date -= everytime
-      end
-
-      periods = valid_periods.dup
-      loop do
-        period = periods.shift
-        break if period.nil? || period >= max_period || !days.positive?
-
-        if DebugUtils.trace?
-          LogUtils.log "DEBUG: #{period} day periods started #{(today - to_date).to_i} days in."
+      one_half = ((days - everytime) / 2).to_i
+      one_third = ((days - everytime) / 3).to_i
+      two_ninths = (2 * (days - everytime) / 9).to_i
+      run_ranges =
+        case max_period
+        when 2
+          [
+            [[to_date - (one_half + everytime), to_date, "#{max_period}#0+everytime"]],
+            [[to_date - days, to_date - (one_half + everytime), "#{max_period}#1"], [to_date - everytime, to_date, "everytime"]]
+          ]
+        when 3
+          [
+            [[to_date - days - 1, to_date + two_ninths - days, "3#0"], [to_date - (one_third + everytime), to_date, "2#0+everytime"]],
+            [[to_date + two_ninths - days, to_date + 2 * two_ninths - days, "3#1"], [to_date - everytime, to_date, "everytime"]],
+            [[to_date + 2 * two_ninths - days, to_date, "3#2+2#0+everytime"]],
+            [[to_date - days - 1, to_date + two_ninths - days, "3#3"], [to_date - everytime, to_date, "everytime"]],
+            [[to_date + two_ninths - days, to_date + 2 * two_ninths - days, "3#4"], [to_date - (one_third + everytime), to_date, "2#2+everytime"]],
+            [[to_date + 2 * two_ninths - days, to_date - (one_third + everytime), "3#5"], [to_date - everytime, to_date, "everytime"]]
+          ]
+        else
+          [
+            [[to_date - (one_half + everytime), to_date, "2#0+everytime"]],
+            [[to_date - days - 2, to_date - (one_half + everytime), "4#0"], [to_date - everytime, to_date, "everytime"]],
+            [[to_date - (one_half + everytime), to_date, "2#1+everytime"]],
+            [[to_date - everytime, to_date, "everytime"]]
+          ]
         end
-        period.times do |index|
-          break unless days.positive?
+      run_number = today.to_date.jd % run_ranges.size
 
-          this_period = [days, period].min
-          break if this_period <= 0
-
-          earliest_from = to_date - days
-          # we are working from the oldest back towards today
-          if run_number % period == index
-            from = to_date - index - (this_period - 1)
-            from = earliest_from if from < earliest_from
-            to = [today, to_date - index].min
-            break if from > to
-
-            @max_period_used = [this_period, @max_period_used].max
-            if ranges.any? && ranges.last[0] <= to + 1 && MERGE_ADJACENT_RANGES
-              # extend adjacent range
-              ranges.last[0] = [from, ranges.last[0]].min
-              ranges.last[2] = "#{period}\##{index},#{ranges.last[2]}"
-            else
-              to = ranges.last[0] - 1 if ranges.any? && to >= ranges.last[0]
-              ranges << [from, to, "#{period}\##{index}"]
-            end
-          end
-          days -= this_period
-          to_date -= this_period
-        end
-      end
-      # remainder of range at max_period, whatever that is
+      ranges = run_ranges[run_number]
       if days.positive? && ScraperUtils::DebugUtils.trace?
-        LogUtils.log "DEBUG: #{max_period} day periods started #{(today - to_date).to_i} days in."
+        LogUtils.log "DEBUG: #{max_period} ranges: #{ranges.inspect}"
       end
-      index = -1
-      while days.positive?
-        index += 1
-        this_period = [days, max_period].min
-        break if this_period <= 0
-
-        earliest_from = to_date - days
-        if (run_number % max_period) == (index % max_period)
-          from = to_date - index - (this_period - 1)
-          from = earliest_from if from < earliest_from
-          to = to_date - index
-          break if from > to
-
-          @max_period_used = [this_period, @max_period_used].max
-          if ranges.any? && ranges.last[0] <= to + 1 && MERGE_ADJACENT_RANGES
-            # extend adjacent range
-            ranges.last[0] = [from, ranges.last[0]].min
-            ranges.last[2] = "#{this_period}\##{index},#{ranges.last[2]}"
-          else
-            to = ranges.last[0] - 1 if ranges.any? && to >= ranges.last[0]
-            ranges << [from, to, "#{this_period}\##{index}"]
-          end
-        end
-        days -= this_period
-        to_date -= this_period
-      end
-      ranges.reverse
+      ranges
     end
   end
 end

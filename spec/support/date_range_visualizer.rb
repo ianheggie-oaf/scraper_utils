@@ -14,6 +14,9 @@ class DateRangeVisualizer
   MAX_ROWS = 40
   MAX_COLUMNS = 50
 
+  CSS_CLASSES = %w[searched-0 searched-1 searched-2 searched-3 searched-4]
+  CSS_DEFAULT_CLASS = "searched-other"
+
   # Initialize the visualizer with simulation data
   # @param simulation_history [Hash] Hash with Date objects as keys and arrays of [from_date, to_date, comment]
   # @param error_data [Hash, nil] Error information if an error occurred containing:
@@ -48,6 +51,9 @@ class DateRangeVisualizer
     @max_period = config[:max_period] || 5
     @everytime = config[:everytime] || 1
     @days = config[:days] || 30
+    # days to correspond to CSS_CLASSES
+    @css_days = []
+    @css_other_days = []
   end
 
   # Generate HTML visualization and save to file
@@ -186,13 +192,29 @@ class DateRangeVisualizer
     ["error-streak", @error_data[:message] || "ERROR", "E<wbr>rr<wbr>or", 1, row_span]
   end
 
+  def rationalize_css_classes
+    if @css_other_days.size == 1
+      @css_days << @css_other_days.first
+      @css_other_days = []
+    end
+  end
+
   def display_range(boundary_class, from_date, to_date, comment)
     effective_from = [from_date, first_search_date].max
     col_span = (to_date + 1 - effective_from).to_i
-    css_days = (to_date + 1 - from_date).to_i
-    css_days = "other" unless [2, 3, 4, 5].include?(css_days)
+    days = (to_date + 1 - from_date).to_i
+    css_index = @css_days.index(days)
+    if css_index.nil?
+      if @css_days.size < CSS_CLASSES.size
+      css_index = @css_days.size
+      @css_days << days
+      else
+        @css_other_days << days unless @css_other_days.index(days)
+      end
+    end
+    css_index ||= CSS_CLASSES.size
     [
-      "searched-#{css_days} #{boundary_class}",
+      "searched-#{css_index} #{boundary_class}",
       "#{format_date from_date} .. #{format_date to_date}",
       comment,
       col_span,
