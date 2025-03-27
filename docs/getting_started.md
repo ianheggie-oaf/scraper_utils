@@ -54,14 +54,14 @@ export DEBUG=1 # for basic, or 2 for verbose or 3 for tracing nearly everything
 
 ## Example Scraper Implementation
 
-Update your `scraper.rb` as per [example scraper](example_scraper.rb)
+Update your `scraper.rb` as per {file:example_scraper.rb example scraper}
 
-For more advanced implementations, see the [Interleaving Requests documentation](interleaving_requests.md).
+For more advanced implementations, see the {file:interleaving_requests.md Interleaving Requests documentation}.
 
 ## Logging Tables
 
 The following logging tables are created for use in monitoring failure patterns and debugging issues.
-Records are automaticaly cleared after 30 days.
+Records are automatically cleared after 30 days.
 
 The `ScraperUtils::LogUtils.log_scraping_run` call also logs the information to the `scrape_log` table.
 
@@ -69,6 +69,6 @@ The `ScraperUtils::LogUtils.save_summary_record` call also logs the information 
 
 ## Next Steps
 
-- [Reducing Server Load](reducing_server_load.md)
-- [Mechanize Utilities](mechanize_utilities.md)
-- [Debugging](debugging.md)
+- {file:reducing_server_load.md Reducing Server Load}
+- {file:mechanize_utilities.md Mechanize Utilities}
+- {file:debugging.md Debugging}

@@ -24,7 +24,7 @@ module ScraperUtils
     #   )
     class AgentConfig
       DEFAULT_TIMEOUT = 60
-      DEFAULT_RANDOM_DELAY = 5
+      DEFAULT_RANDOM_DELAY = 0
       DEFAULT_MAX_LOAD = 33.3
       MAX_LOAD_CAP = 50.0
 
@@ -67,7 +67,7 @@ module ScraperUtils
         # Reset all configuration options to their default values
         # @return [void]
         def reset_defaults!
-          @default_timeout = ENV.fetch('MORPH_TIMEOUT', DEFAULT_TIMEOUT).to_i # 60
+          @default_timeout = ENV.fetch('MORPH_CLIENT_TIMEOUT', DEFAULT_TIMEOUT).to_i # 60
           @default_compliant_mode = ENV.fetch('MORPH_NOT_COMPLIANT', nil).to_s.empty? # true
           @default_random_delay = ENV.fetch('MORPH_RANDOM_DELAY', DEFAULT_RANDOM_DELAY).to_i # 5
           @default_max_load = ENV.fetch('MORPH_MAX_LOAD', DEFAULT_MAX_LOAD).to_f # 33.3
@@ -85,7 +85,7 @@ module ScraperUtils
 
       # Give access for testing
 
-      attr_reader :max_load, :min_random, :max_random
+      attr_reader :max_load, :random_range
 
       # Creates Mechanize agent configuration with sensible defaults overridable via configure
       # @param timeout [Integer, nil] Timeout for agent connections (default: 60)
@@ -125,21 +125,21 @@ module ScraperUtils
         @australian_proxy &&= !ScraperUtils.australian_proxy.to_s.empty?
         if @australian_proxy
           uri = begin
-            URI.parse(ScraperUtils.australian_proxy.to_s)
-          rescue URI::InvalidURIError => e
-            raise URI::InvalidURIError, "Invalid proxy URL format: #{e.message}"
-          end
+                  URI.parse(ScraperUtils.australian_proxy.to_s)
+                rescue URI::InvalidURIError => e
+                  raise URI::InvalidURIError, "Invalid proxy URL format: #{e.message}"
+                end
           unless uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
             raise URI::InvalidURIError, "Proxy URL must start with http:// or https://"
           end
-          unless uri.host && uri.port
+          unless !uri.host.to_s.empty? && uri.port&.positive?
             raise URI::InvalidURIError, "Proxy URL must include host and port"
           end
         end
 
-        if @random_delay
-          @min_random = Math.sqrt(@random_delay * 3.0 / 13.0).round(3)
-          @max_random = (3 * @min_random).round(3)
+        if @random_delay&.positive?
+          min_random = Math.sqrt(@random_delay * 3.0 / 13.0)
+          @random_range = min_random.round(3)..(3 * min_random).round(3)
         end
 
         today = Date.today.strftime("%Y-%m-%d")
@@ -177,7 +177,6 @@ module ScraperUtils
           verify_proxy_works(agent)
         end
 
-        @connection_started_at = nil
         agent.pre_connect_hooks << method(:pre_connect_hook)
         agent.post_connect_hooks << method(:post_connect_hook)
       end
@@ -193,11 +192,11 @@ module ScraperUtils
                           "australian_proxy=#{@australian_proxy.inspect}"
                         end
         display_args << "compliant_mode" if @compliant_mode
-        display_args << "random_delay=#{@random_delay}" if @random_delay
+        display_args << "random_delay=#{@random_delay}" if @random_delay&.positive?
         display_args << "max_load=#{@max_load}%" if @max_load
         display_args << "disable_ssl_certificate_check" if @disable_ssl_certificate_check
         display_args << "default args" if display_args.empty?
-        ScraperUtils::FiberScheduler.log(
+        ScraperUtils::LogUtils.log(
           "Configuring Mechanize agent with #{display_args.join(', ')}"
         )
       end
@@ -206,7 +205,7 @@ module ScraperUtils
         @connection_started_at = Time.now
         return unless DebugUtils.verbose?
 
-        ScraperUtils::FiberScheduler.log(
+        ScraperUtils::LogUtils.log(
           "Pre Connect request: #{request.inspect} at #{@connection_started_at}"
         )
       end
@@ -216,9 +215,9 @@ module ScraperUtils
 
         response_time = Time.now - @connection_started_at
         if DebugUtils.basic?
-          ScraperUtils::FiberScheduler.log(
+          ScraperUtils::LogUtils.log(
             "Post Connect uri: #{uri.inspect}, response: #{response.inspect} " \
-            "after #{response_time} seconds"
+              "after #{response_time} seconds"
           )
         end
 
@@ -227,33 +226,35 @@ module ScraperUtils
                 "URL is disallowed by robots.txt specific rules: #{uri}"
         end
 
-        delays = {
-          robot_txt: @robots_checker&.crawl_delay&.round(3),
-          max_load: @adaptive_delay&.next_delay(uri, response_time)&.round(3),
-          random: (@min_random ? (rand(@min_random..@max_random)**2).round(3) : nil)
-        }
-        @delay = delays.values.compact.max
-        if @delay&.positive?
-          $stderr.flush
-          ScraperUtils::FiberScheduler.log("Delaying #{@delay} seconds, max of #{delays.inspect}") if ENV["DEBUG"]
-          $stdout.flush
-          ScraperUtils::FiberScheduler.delay(@delay)
+        @delay_till = nil
+        @delay = @robots_checker&.crawl_delay&.round(3)
+        debug_msg = "Delaying robots.txt: crawl_delay #{@delay} seconds"
+        unless @delay&.positive?
+          delays = {
+            max_load: @adaptive_delay&.next_delay(uri, response_time)&.round(3),
+            random: (@random_range ? (rand(@random_range) ** 2).round(3) : nil)
+          }
+          @delay = [delays[:max_load], delays[:random]].compact.sum
+          debug_msg = "Delaying #{@delay} seconds, sum of: #{delays.inspect}"
         end
-
+        if @delay&.positive?
+          @delay_till = Time.now + @delay
+          ScraperUtils::LogUtils.log(debug_msg) if ScraperUtils::DebugUtils.basic?
+        end
         response
       end
 
       def verify_proxy_works(agent)
         $stderr.flush
         $stdout.flush
-        FiberScheduler.log "Checking proxy works..."
+        LogUtils.log "Checking proxy works..."
         my_ip = MechanizeUtils.public_ip(agent)
         begin
           IPAddr.new(my_ip)
         rescue IPAddr::InvalidAddressError => e
           raise "Invalid public IP address returned by proxy check: #{my_ip.inspect}: #{e}"
         end
-        ScraperUtils::FiberScheduler.log "Proxy is using IP address: #{my_ip.inspect}"
+        ScraperUtils::LogUtils.log "Proxy is using IP address: #{my_ip.inspect}"
         my_headers = MechanizeUtils.public_headers(agent)
         begin
           # Check response is JSON just to be safe!

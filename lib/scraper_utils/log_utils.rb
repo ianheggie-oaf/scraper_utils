@@ -9,6 +9,21 @@ module ScraperUtils
     LOG_TABLE = "scrape_log"
     LOG_RETENTION_DAYS = 30
 
+    # Logs a message, automatically prefixing with authority name if in a fiber
+    #
+    # @param message [String] the message to log
+    # @return [void]
+    def self.log(message, authority = nil)
+      authority ||= Scheduler.current_authority
+      $stderr.flush
+      if authority
+        puts "[#{authority}] #{message}"
+      else
+        puts message
+      end
+      $stdout.flush
+    end
+
     # Log details about a scraping run for one or more authorities
     # @param start_time [Time] When this scraping attempt was started
     # @param attempt [Integer] 1 for first run, 2 for first retry, 3 for last retry (without proxy)

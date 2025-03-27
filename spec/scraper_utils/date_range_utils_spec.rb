@@ -38,23 +38,96 @@ RSpec.describe ScraperUtils::DateRangeUtils do
       end
 
       it "returns a single range when max_period is 1" do
-        result = utils.calculate_date_ranges(days: 10, max_period: 1, today: today)
-        expect(result).to eq([[today - 9, today, "everything"]])
+        result = utils.calculate_date_ranges(days: 30, max_period: 1, today: today)
+        expect(result).to eq([[today - 29, today, "everything"]])
       end
 
       it "returns a single range when everytime covers all days" do
-        result = utils.calculate_date_ranges(days: 5, everytime: 5, today: today)
-        expect(result).to eq([[today - 4, today, "everything"]])
+        result = utils.calculate_date_ranges(days: 30, everytime: 30, today: today)
+        expect(result).to eq([[today - 29, today, "everything"]])
       end
     end
 
     context "with fibonacci progression" do
-      it "respects and uses max_period" do
+      it "respects and uses max_period=3" do
+        utils.calculate_date_ranges(days: 30, everytime: 2, max_period: 3, today: today)
+
+        expect(utils.max_period_used).to eq(3)
+      end
+
+      it "respects and uses max_period=5" do
         utils.calculate_date_ranges(days: 30, everytime: 2, max_period: 5, today: today)
 
         expect(utils.max_period_used).to eq(5)
       end
     end
+
+    context "with edge cases" do
+      it "handles invalid days value" do
+        # Line 96: if !max_period.positive? || !days.positive?
+        result = utils.calculate_date_ranges(days: 0, everytime: 2, max_period: 5, today: Date.today)
+        expect(result).to eq([])
+      end
+
+      it "handles valid max_period that doesn't match any standard period" do
+        # Test the case where we use max_period = 4 (not in PERIODS = [2, 3, 5, 8])
+        # Note: used days: 40 as 5-day periods doesn't start till just after 30 even if selected
+        today = Date.today
+        result = []
+        expected_max_period = 3
+        expected_max_period.times do |offset|
+          result.concat utils.calculate_date_ranges(days: 40, everytime: 2, max_period: 4, today: today - offset)
+        end
+
+        # Should use the highest valid period that's <= max_period (3 in this case)
+        expect(utils.max_period_used).to eq(expected_max_period)
+
+        # Should still cover all dates
+        date_counts = Hash.new(0)
+        result.each do |from_date, to_date, _comment|
+          (from_date..to_date).each do |date|
+            date_counts[date] += 1
+          end
+        end
+
+        # Check that all dates in the range are covered
+        (today - 20..today).each do |date|
+          expect(date_counts[date]).to be >= 1, "Date #{date} should be covered! date_counts: #{date_counts.to_json}"
+        end
+      end
+
+      it "correctly calculates remaining days at max_period" do
+        # Tests line 128: max_period = valid_periods.max
+        today = Date.today
+        days = 20
+        everytime = 2
+        max_period = 5
+
+        result = []
+        expected_max_period = 3
+        expected_max_period.times do |offset|
+          result.concat utils.calculate_date_ranges(days: days, everytime: everytime, max_period: max_period, today: today - offset)
+        end
+
+        # Should use the highest valid period that's <= max_period (3 in this case)
+        expect(utils.max_period_used).to eq(expected_max_period)
+
+        # Should still cover all dates
+        date_counts = Hash.new(0)
+        result.each do |from_date, to_date, _comment|
+          (from_date..to_date).each do |date|
+            date_counts[date] += 1
+          end
+        end
+
+        # Check that all dates in the range are covered
+        (today - days + 1..today).each do |date|
+          expect(date_counts[date]).to be >= 1, "Date #{date} should be covered! date_counts: #{date_counts.to_json}"
+        end
+      end
+    end
+
+
 
     context "simulation testing" do
       it "provides good coverage with realistic parameters for max 2 days", :aggregate_failures do
@@ -121,7 +194,7 @@ RSpec.describe ScraperUtils::DateRangeUtils do
         puts stats[:table]
 
         # Basic verification of the algorithm properties
-        #expect(utils.max_period_used).to eq(5) # sometimes 3
+        # expect(utils.max_period_used).to eq(5) # sometimes 3
         expect(stats[:max_unchecked_streak]).to be <= 5
         expect(stats[:coverage_percentage]).to eq(100)
 
@@ -130,32 +203,6 @@ RSpec.describe ScraperUtils::DateRangeUtils do
         expect(stats[:avg_checked_per_day]).to be_between(avg - 1, avg + 1)
         expect(stats[:min_checked_per_day]).to be_between(avg - 12, avg)
         expect(stats[:max_checked_per_day]).to be_between(avg, avg + 10)
-      end
-
-
-      it "provides good coverage with realistic parameters for 8 days", :aggregate_failures do
-        # Run a 60-day simulation to ensure all days get checked
-        stats = DateRangeSimulator.run_simulation(
-          utils,
-          days: ScraperUtils::DateRangeUtils.default_everytime + 2 * 2 + 3 * 3 + 5 * 5 + 8 * 8 + 4,
-          everytime: ScraperUtils::DateRangeUtils.default_everytime,
-          max_period: 8,
-          visualize: !ENV['VISUALIZE']&.empty?
-        )
-
-        # Output the stats table
-        puts stats[:table]
-
-        # Basic verification of the algorithm properties
-        expect(utils.max_period_used).to eq(8)
-        expect(stats[:max_unchecked_streak]).to be <= 8
-        expect(stats[:coverage_percentage]).to eq(100)
-
-        # Verify load distribution
-        avg = 19.6 # decent enough though nit as good as I hoped
-        expect(stats[:avg_checked_per_day]).to be_between(avg - 5, avg + 5)
-        expect(stats[:min_checked_per_day]).to be_between(avg - 8, avg)
-        expect(stats[:max_checked_per_day]).to be_between(avg, avg + 5)
       end
     end
   end

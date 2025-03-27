@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require_relative "../spec_helper"
+require_relative "../../spec_helper"
 
-RSpec.describe ScraperUtils::AdaptiveDelay do
-  before do
-    # Reset the delay cache before each test
-    described_class.new.instance_variable_set(:@delays, {})
-  end
+RSpec.describe ScraperUtils::MechanizeUtils::AdaptiveDelay do
+  # before do
+  #   # Reset the delay cache before each test
+  #   described_class.new.instance_variable_set(:@delays, {})
+  # end
 
   describe "#initialize" do
     it "sets initial delay to a float" do
@@ -17,7 +17,7 @@ RSpec.describe ScraperUtils::AdaptiveDelay do
 
     it "uses default values when not provided" do
       delay_handler = described_class.new
-      expect(delay_handler.max_delay).to eq(ScraperUtils::AdaptiveDelay::DEFAULT_MAX_DELAY)
+      expect(delay_handler.max_delay).to eq(ScraperUtils::MechanizeUtils::AdaptiveDelay::DEFAULT_MAX_DELAY)
     end
 
     it "accepts custom max_delay" do
@@ -39,39 +39,25 @@ RSpec.describe ScraperUtils::AdaptiveDelay do
       delay = delay_handler.next_delay(test_url, -30.0)
       expect(delay).to eq(1.0) # Clamped to min_delay
       delay = delay_handler.next_delay(test_url, 2.5)
-      expect(delay).to be_within(0.1).of(1.9) # start to come up immediately
+      expect(delay).to be_within(0.1).of(3.25) # start to come up immediately
     end
 
     it "Handles huge response times due to clock skew sanely" do
       delay = delay_handler.next_delay(test_url, 999.0)
       expect(delay).to eq(30.0) # Clamped to max_delay
       delay = delay_handler.next_delay(test_url, 1.0)
-      expect(delay).to be_within(0.1).of(27.4) # start to come down immediately
+      expect(delay).to be_within(0.1).of(23.5) # start to come down immediately
     end
 
-    it "uses 4x first response time as initial delay" do
-      delay = delay_handler.next_delay(test_url, 1.5)
-      expect(delay).to eq(6.0) # 1.5 * 4.0
-    end
-
-    it "trends towards 4x response time" do
+    it "trends 25% towards 4x response time each call" do
       # Multiple calls should trend towards 4x the response time
-      delay_handler.next_delay(test_url, 1.0)
+      trend = delay_handler.next_delay(test_url, 1.0)
+      expect(trend).to be_within(0.1).of(4.0)
       10.times do
-        delay = delay_handler.next_delay(test_url, 1.0)
-        expect(delay).to be_within(0.1).of(4.0)
+        delay = delay_handler.next_delay(test_url, 2.0)
+        trend = (8 + 3 * trend) / 4.0
+        expect(delay).to be_within(0.1).of(trend)
       end
-    end
-
-    it "smooths changes using 9/10 ratio" do
-      # Start with response time of 1.0 (initial delay 4.0)
-      first_delay = delay_handler.next_delay(test_url, 1.0)
-      expect(first_delay).to be_within(0.1).of(4.0)
-
-      # Sudden change to response time of 2.0
-      # New delay should be (9 * 4.0 + 8.0) / 10 = 4.4
-      next_delay = delay_handler.next_delay(test_url, 2.0)
-      expect(next_delay).to be_within(0.1).of(4.4)
     end
 
     it "restricts min delay value" do
@@ -99,16 +85,16 @@ RSpec.describe ScraperUtils::AdaptiveDelay do
     let(:delay_handler) { described_class.new }
 
     it "extracts domain from URL string" do
-      expect(delay_handler.domain("https://example.com/path")).to eq("https://example.com")
+      expect(delay_handler.send(:domain, "https://example.com/path")).to eq("https://example.com")
     end
 
     it "extracts domain from URI object" do
       uri = URI("https://example.com/path")
-      expect(delay_handler.domain(uri)).to eq("https://example.com")
+      expect(delay_handler.send(:domain, uri)).to eq("https://example.com")
     end
 
     it "normalizes domain to lowercase" do
-      expect(delay_handler.domain("HTTPS://EXAMPLE.COM/path")).to eq("https://example.com")
+      expect(delay_handler.send(:domain, "HTTPS://EXAMPLE.COM/path")).to eq("https://example.com")
     end
   end
 
@@ -137,7 +123,7 @@ RSpec.describe ScraperUtils::AdaptiveDelay do
       delay1 = delay_handler.next_delay(test_url1, 1.0)
       delay2 = delay_handler.next_delay(test_url2, 2.0)
       expect(delay2).not_to eq(8.0) # Not 4 * 2.0
-      expect(delay2).to be_within(0.1).of(((9.0 * delay1) + 8.0) / 10.0)
+      expect(delay2).to be_within(0.1).of(5.0)
     end
 
     it "maintains separate caches for different domains" do

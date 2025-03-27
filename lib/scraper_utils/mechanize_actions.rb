@@ -9,7 +9,7 @@ module ScraperUtils
   #   
   #   actions = [
   #     [:click, "Next Page"],
-  #     [:click, ["Option A", "Option B"]] # Will select one randomly
+  #     [:click, ["Option A", "xpath://div[@id='results']/a", "css:.some-button"]] # Will select one randomly
   #   ]
   #   
   #   processor = ScraperUtils::MechanizeActions.new(agent)
@@ -50,7 +50,7 @@ module ScraperUtils
     # @example Action format
     #   actions = [
     #     [:click, "Link Text"],                     # Click on link with this text
-    #     [:click, ["Option A", "Option B"]],        # Click on one of these options (randomly selected)
+    #     [:click, ["Option A", "text:Option B"]],   # Click on one of these options (randomly selected)
     #     [:click, "css:.some-button"],              # Use CSS selector
     #     [:click, "xpath://div[@id='results']/a"],  # Use XPath selector
     #     [:block, ->(page, args, agent, results) { [page, { custom_results: 'data' }] }] # Custom block
@@ -67,8 +67,7 @@ module ScraperUtils
           when :click
             handle_click(current_page, args)
           when :block
-            block = args.shift
-            block.call(current_page, args, agent, @results.dup)
+            handle_block(current_page, args)
           else
             raise ArgumentError, "Unknown action type: #{action_type}"
           end
@@ -80,6 +79,18 @@ module ScraperUtils
     end
 
     private
+
+    # Process a block action
+    #
+    # @param page [Mechanize::Page] The current page
+    # @param args [Array] The block and its arguments
+    # @return [Array<Mechanize::Page, Hash>] The resulting page and status
+    def handle_block(page, args)
+      block = args.shift
+      # Apply replacements to all remaining arguments
+      processed_args = args.map { |arg| apply_replacements(arg) }
+      block.call(page, processed_args.first, agent, @results.dup)
+    end
 
     # Handle a click action
     #
@@ -105,16 +116,34 @@ module ScraperUtils
     # Select an element on the page based on selector string
     #
     # @param page [Mechanize::Page] The page to search in
-    # @param selector_string [String] The selector string
+    # @param selector_string [String] The selector string, optionally with "css:", "xpath:" or "text:" prefix
     # @return [Mechanize::Element, nil] The selected element or nil if not found
     def select_element(page, selector_string)
       # Handle different selector types based on prefixes
       if selector_string.start_with?("css:")
         selector = selector_string.sub(/^css:/, '')
-        page.at_css(selector)
+        # We need to convert Nokogiri elements to Mechanize elements for clicking
+        css_element = page.at_css(selector)
+        return nil unless css_element
+        
+        # If it's a link, find the matching Mechanize link
+        if css_element.name.downcase == 'a' && css_element['href']
+          return page.links.find { |link| link.href == css_element['href'] }
+        end
+        
+        return css_element
       elsif selector_string.start_with?("xpath:")
         selector = selector_string.sub(/^xpath:/, '')
-        page.at_xpath(selector)
+        # We need to convert Nokogiri elements to Mechanize elements for clicking
+        xpath_element = page.at_xpath(selector)
+        return nil unless xpath_element
+        
+        # If it's a link, find the matching Mechanize link
+        if xpath_element.name.downcase == 'a' && xpath_element['href']
+          return page.links.find { |link| link.href == xpath_element['href'] }
+        end
+        
+        return xpath_element
       else
         # Default to text: for links
         selector = selector_string.sub(/^text:/, '')
@@ -133,7 +162,7 @@ module ScraperUtils
           end
         end
 
-        # Get the link with the shortest (closest matching) text then the longest href
+        # Get the link with the a. shortest (closest matching) text and then b. the longest href
         matching_links.min_by { |l| [l.text.strip.length, -l.href.length] }
       end
     end

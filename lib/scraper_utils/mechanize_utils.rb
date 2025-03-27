@@ -2,7 +2,10 @@
 
 require "mechanize"
 require "ipaddr"
-require "scraper_utils/mechanize_utils/agent_config"
+
+require_relative "mechanize_utils/adaptive_delay"
+require_relative "mechanize_utils/agent_config"
+require_relative "mechanize_utils/robots_checker"
 
 module ScraperUtils
   # Utilities for configuring and using Mechanize for web scraping
@@ -43,8 +46,8 @@ module ScraperUtils
 
     # Retrieves and logs the public IP address
     #
-    # @param agent [Mechanize, nil] Mechanize agent to use for IP lookup or nil when clearing cache
-    # @param force [Boolean] Force a new IP lookup, by clearing cache first
+    # @param agent [Mechanize, nil] Mechanize agent to use for IP find or nil when clearing cache
+    # @param force [Boolean] Force a new IP find, by clearing cache first
     # @return [String, nil] The public IP address
     def self.public_ip(agent = nil, force: false)
       @public_ip = nil if force
@@ -57,8 +60,8 @@ module ScraperUtils
 
     # Retrieves and logs the headers that make it through the proxy
     #
-    # @param agent [Mechanize, nil] Mechanize agent to use for IP lookup or nil when clearing cache
-    # @param force [Boolean] Force a new IP lookup, by clearing cache first
+    # @param agent [Mechanize, nil] Mechanize agent to use for IP find or nil when clearing cache
+    # @param force [Boolean] Force a new IP find, by clearing cache first
     # @return [String, nil] The list of headers in json format
     def self.public_headers(agent = nil, force: false)
       @public_headers = nil if force

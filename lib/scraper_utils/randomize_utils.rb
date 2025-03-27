@@ -4,31 +4,34 @@ module ScraperUtils
   # Provides utilities for randomizing processing order in scrapers,
   # particularly helpful for distributing load and avoiding predictable patterns
   module RandomizeUtils
-    # Returns a randomized version of the input collection when in production mode,
-    # or the original collection when in test/sequential mode
+    class << self
+      # Controls if processing order can be randomized
+      #
+      # @return [Boolean] true if all processing is done sequentially, otherwise false
+      # @note Defaults to true unless the MORPH_DISABLE_RANDOM ENV variable is set
+      attr_accessor :random
+
+      # Reports if processing order will be randomized
+      #
+      # @return (see #random)
+      alias random? random
+    end
+
+    def self.reset!
+      @random = ENV["MORPH_DISABLE_RANDOM"].to_s.empty?
+    end
+
+    # reset on class load
+    reset!
+
+    # Returns a randomized version of the input collection unless `.sequential?` is true.
     #
-    # @param collection [Array, Enumerable] Collection of items to potentially randomize
-    # @return [Array] Randomized or original collection depending on environment
+    # @param collection [Array, Enumerable] Collection of items
+    # @return [Array] Randomized unless {.sequential?} is true, otherwise original order
     def self.randomize_order(collection)
-      return collection.to_a if sequential?
+      return collection.to_a.shuffle if random?
 
-      collection.to_a.shuffle
-    end
-
-    # Checks if sequential processing is enabled
-    #
-    # @return [Boolean] true when in test mode or MORPH_PROCESS_SEQUENTIALLY is set
-    def self.sequential?
-      @sequential = !ENV["MORPH_PROCESS_SEQUENTIALLY"].to_s.empty? if @sequential.nil?
-      @sequential || false
-    end
-
-    # Explicitly set sequential mode for testing
-    #
-    # @param value [Boolean, nil] true to enable sequential mode, false to disable, nil to clear cache
-    # @return [Boolean, nil]
-    def self.sequential=(value)
-      @sequential = value
+      collection.to_a
     end
   end
 end

@@ -20,11 +20,18 @@ SimpleCov.formatter = SimpleCov::Formatter::MultiFormatter.new(
 )
 
 require "bundler/setup"
-require "scraper_utils"
 require "rspec"
 
-# Require all library files
-Dir[File.expand_path("../lib/**/*.rb", __dir__ || "spec/")].each { |f| require f }
+# Clear ENV variables that affect tests:
+%w[MORPH_DAYS MORPH_EVERYTIME MORPH_MAX_PERIOD
+   MORPH_EXPECT_BAD MORPH_DISABLE_RANDOM
+   MORPH_DISABLE_THREADS  MORPH_MAX_WORKERS MORPH_RUN_TIMEOUT
+   MORPH_CLIENT_TIMEOUT MORPH_NOT_COMPLIANT MORPH_RANDOM_DELAY MORPH_MAX_LOAD
+   MORPH_DISABLE_SSL_CHECK MORPH_USE_PROXY MORPH_USER_AGENT].each do |var|
+  ENV[var] = nil
+end
+
+require "scraper_utils"
 
 # Load all support files
 Dir[File.expand_path('./support/**/*.rb', __dir__ || "spec/")].each { |f| require f }

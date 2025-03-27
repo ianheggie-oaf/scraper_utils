@@ -32,5 +32,6 @@ gem "simplecov", platform && (platform == :heroku16 ? "~> 0.18.0" : "~> 0.22.0")
 gem "simplecov-console"
 gem "terminal-table"
 gem "webmock", platform && (platform == :heroku16 ? "~> 3.14.0" : "~> 3.19.0")
+gem "yard"
 
 gemspec
