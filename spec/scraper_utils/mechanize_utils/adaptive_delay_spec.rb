@@ -32,30 +32,30 @@ RSpec.describe ScraperUtils::MechanizeUtils::AdaptiveDelay do
 
     it "uses 4x first response time as initial delay" do
       delay = delay_handler.next_delay(test_url, 1.5)
-      expect(delay).to eq(6.0) # 1.5 * 4.0
+      expect(delay).to eq(1.5) # 1.5 * 4.0
     end
 
     it "Handles negative response times due to clock skew sanely" do
       delay = delay_handler.next_delay(test_url, -30.0)
       expect(delay).to eq(1.0) # Clamped to min_delay
       delay = delay_handler.next_delay(test_url, 2.5)
-      expect(delay).to be_within(0.1).of(3.25) # start to come up immediately
+      expect(delay).to be_within(0.1).of(1.375) # start to come up immediately
     end
 
     it "Handles huge response times due to clock skew sanely" do
       delay = delay_handler.next_delay(test_url, 999.0)
       expect(delay).to eq(30.0) # Clamped to max_delay
       delay = delay_handler.next_delay(test_url, 1.0)
-      expect(delay).to be_within(0.1).of(23.5) # start to come down immediately
+      expect(delay).to be_within(0.1).of(22.75) # start to come down immediately
     end
 
     it "trends 25% towards 4x response time each call" do
       # Multiple calls should trend towards 4x the response time
       trend = delay_handler.next_delay(test_url, 1.0)
-      expect(trend).to be_within(0.1).of(4.0)
+      expect(trend).to be_within(0.1).of(1.0)
       10.times do
         delay = delay_handler.next_delay(test_url, 2.0)
-        trend = (8 + 3 * trend) / 4.0
+        trend = (2.0 + 3 * trend) / 4.0
         expect(delay).to be_within(0.1).of(trend)
       end
     end
@@ -108,7 +108,7 @@ RSpec.describe ScraperUtils::MechanizeUtils::AdaptiveDelay do
 
     it "returns current delay for known domains" do
       delay_handler.next_delay(test_url, 1.0) # Sets up initial delay
-      expect(delay_handler.delay(test_url)).to be_within(0.1).of(4.0)
+      expect(delay_handler.delay(test_url)).to be_within(0.1).of(1.0)
     end
   end
 
@@ -122,16 +122,16 @@ RSpec.describe ScraperUtils::MechanizeUtils::AdaptiveDelay do
       # Same domain should share delay
       delay1 = delay_handler.next_delay(test_url1, 1.0)
       delay2 = delay_handler.next_delay(test_url2, 2.0)
-      expect(delay2).not_to eq(8.0) # Not 4 * 2.0
-      expect(delay2).to be_within(0.1).of(5.0)
+      expect(delay2).not_to eq(2.0) # Not 4 * 2.0
+      expect(delay2).to be_within(0.1).of(1.25)
     end
 
     it "maintains separate caches for different domains" do
       # Different domains should have independent delays
       delay1 = delay_handler.next_delay(test_url1, 1.0)
-      expect(delay1).to eq(4.0) # Should be 4 * 1.0 for test domain
+      expect(delay1).to eq(1.0) # Should be 4 * 1.0 for test domain
       delay2 = delay_handler.next_delay(test_other_url, 2.0)
-      expect(delay2).to eq(8.0) # Should be 4 * 2.0 for new domain
+      expect(delay2).to eq(2.0) # Should be 4 * 2.0 for new domain
     end
 
     it "persists delays between calls" do

@@ -54,7 +54,6 @@ Our test directory structure reflects various testing strategies and aspects of 
 These specs check the options we use when things go wrong in production
 
 - `spec/scraper_utils/no_threads/` - Tests with threads disabled (`MORPH_DISABLE_THREADS=1`)
-- `spec/scraper_utils/no_fibers/` - Tests with fibers disabled (`MORPH_MAX_WORKERS=0`)
 - `spec/scraper_utils/sequential/` - Tests with exactly one worker (`MORPH_MAX_WORKERS=1`)
 
 ### Directories to break up large specs

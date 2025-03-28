@@ -14,7 +14,6 @@ RSpec.describe ScraperUtils::Scheduler do
     end
   end
 
-
   describe ".get_response" do
     it "returns nil when queue is empty and non_block is true" do
       # Access the private method for testing

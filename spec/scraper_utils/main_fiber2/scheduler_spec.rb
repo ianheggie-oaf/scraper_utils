@@ -201,7 +201,6 @@ RSpec.describe ScraperUtils::Scheduler do
         expect(registry.size).to eq(0)
         expect(ran).to eq([:test_op1, :test_op2, :test_op3])
       end
-
     end
   end
 end

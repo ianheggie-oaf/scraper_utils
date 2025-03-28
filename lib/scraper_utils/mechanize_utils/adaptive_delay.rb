@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "uri"
+require_relative "agent_config"
 
 module ScraperUtils
   module MechanizeUtils
@@ -17,13 +18,13 @@ module ScraperUtils
       #
       # @param min_delay [Float] Minimum delay between requests in seconds
       # @param max_delay [Float] Maximum delay between requests in seconds
-      # @param max_load [Float] Maximum load percentage (1-99) we aim to place on the server
+      # @param max_load [Float] Maximum load percentage (1..Constants::MAX_LOAD_CAP) we aim to place on the server
       #                         Lower values are more conservative (e.g., 20% = 4x response time delay)
-      def initialize(min_delay: DEFAULT_MIN_DELAY, max_delay: DEFAULT_MAX_DELAY, max_load: 20.0)
+      def initialize(min_delay: DEFAULT_MIN_DELAY, max_delay: DEFAULT_MAX_DELAY, max_load: AgentConfig::DEFAULT_MAX_LOAD)
         @delays = {} # domain -> last delay used
         @min_delay = min_delay.to_f
         @max_delay = max_delay.to_f
-        @max_load = max_load.to_f.clamp(1.0, 99.0)
+        @max_load = max_load.to_f.clamp(1.0, AgentConfig::MAX_LOAD_CAP)
         @response_multiplier = (100.0 - @max_load) / @max_load
 
         return unless DebugUtils.basic?

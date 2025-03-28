@@ -25,8 +25,8 @@ module ScraperUtils
     class AgentConfig
       DEFAULT_TIMEOUT = 60
       DEFAULT_RANDOM_DELAY = 0
-      DEFAULT_MAX_LOAD = 33.3
-      MAX_LOAD_CAP = 50.0
+      DEFAULT_MAX_LOAD = 50.0
+      MAX_LOAD_CAP = 80.0
 
       # Class-level defaults that can be modified
       class << self
@@ -69,8 +69,8 @@ module ScraperUtils
         def reset_defaults!
           @default_timeout = ENV.fetch('MORPH_CLIENT_TIMEOUT', DEFAULT_TIMEOUT).to_i # 60
           @default_compliant_mode = ENV.fetch('MORPH_NOT_COMPLIANT', nil).to_s.empty? # true
-          @default_random_delay = ENV.fetch('MORPH_RANDOM_DELAY', DEFAULT_RANDOM_DELAY).to_i # 5
-          @default_max_load = ENV.fetch('MORPH_MAX_LOAD', DEFAULT_MAX_LOAD).to_f # 33.3
+          @default_random_delay = ENV.fetch('MORPH_RANDOM_DELAY', DEFAULT_RANDOM_DELAY).to_i # 0
+          @default_max_load = ENV.fetch('MORPH_MAX_LOAD', DEFAULT_MAX_LOAD).to_f # 50.0
           @default_disable_ssl_certificate_check = !ENV.fetch('MORPH_DISABLE_SSL_CHECK', nil).to_s.empty? # false
           @default_australian_proxy = !ENV.fetch('MORPH_USE_PROXY', nil).to_s.empty? # false
           @default_user_agent = ENV.fetch('MORPH_USER_AGENT', nil) # Uses Mechanize user agent

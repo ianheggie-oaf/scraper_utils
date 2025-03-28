@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1 - 2025-03-28
+
+* Changed DEFAULT_MAX_LOAD to 50.0 as we are overestimating the load we present as network latency is included
+* Correct documentation of spec_helper extra lines
+* Fix misc bugs found in use
+
 ## 0.6.0 - 2025-03-16
 
 * Add threads for more efficient scraping

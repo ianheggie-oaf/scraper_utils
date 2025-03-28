@@ -26,7 +26,8 @@ This uses {ScraperUtils::RandomizeUtils} for determining the order of operations
 `spec/spec_helper.rb`:
 
 ```ruby
-ScraperUtils::RandomizeUtils.sequential = true
+ScraperUtils::RandomizeUtils.random = false
+ScraperUtils::Scheduler.max_workers = 1
 ```
 
 For full details, see the {Scheduler}.

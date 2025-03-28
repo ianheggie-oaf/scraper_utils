@@ -68,7 +68,7 @@ module ScraperUtils
 
       # Controls whether Mechanize network requests are executed in parallel using threads
       #
-      # @return [Integer] max concurrent workers using fibers and threads, defaults to MAX_WORKERS env variable or 50
+      # @return [Integer] max concurrent workers using fibers and threads, defaults to MORPH_MAX_WORKERS env variable or 50
       attr_accessor :max_workers
 
       # @return [Hash{Symbol => Exception}] exceptions by authority
@@ -259,7 +259,7 @@ module ScraperUtils
     #
     # @return [ThreadResponse, nil] Result of request execution
     def self.get_response(non_block = true)
-      return nil if non_block && @response_queue.empty?
+      return nil if @response_queue.nil? || (non_block && @response_queue.empty?)
 
       @response_queue.pop(non_block)
     end

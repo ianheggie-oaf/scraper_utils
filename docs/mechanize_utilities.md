@@ -29,16 +29,16 @@ The agent returned is configured using Mechanize hooks to implement the desired 
 ### Default Configuration
 
 By default, the Mechanize agent is configured with the following settings.
-As you can see, the defaults can be changed using env variables.
+As you can see, the defaults can be changed using env variables or via code.
 
 Note - compliant mode forces max_load to be set to a value no greater than 50.
 
 ```ruby
 ScraperUtils::MechanizeUtils::AgentConfig.configure do |config|
-  config.default_timeout = ENV.fetch('MORPH_TIMEOUT', 60).to_i # 60
+  config.default_timeout = ENV.fetch('MORPH_TIMEOUT', DEFAULT_TIMEOUT).to_i # 60
   config.default_compliant_mode = ENV.fetch('MORPH_NOT_COMPLIANT', nil).to_s.empty? # true
-  config.default_random_delay = ENV.fetch('MORPH_RANDOM_DELAY', 5).to_i # 5
-  config.default_max_load = ENV.fetch('MORPH_MAX_LOAD', 33.3).to_f # 33.3
+  config.default_random_delay = ENV.fetch('MORPH_RANDOM_DELAY', DEFAULT_RANDOM_DELAY).to_i # 0
+  config.default_max_load = ENV.fetch('MORPH_MAX_LOAD',DEFAULT_MAX_LOAD).to_f # 50.0
   config.default_disable_ssl_certificate_check = !ENV.fetch('MORPH_DISABLE_SSL_CHECK', nil).to_s.empty? # false
   config.default_australian_proxy = !ENV.fetch('MORPH_USE_PROXY', nil).to_s.empty? # false
   config.default_user_agent = ENV.fetch('MORPH_USER_AGENT', nil) # Uses Mechanize user agent

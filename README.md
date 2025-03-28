@@ -15,11 +15,11 @@ Our goal is to access public planning information with minimal impact on your se
 default:
 
 - **Limit server load**:
-    - We limit the max load we present to your server to well less than a third of a single cpu
-        - The more loaded your server is, the longer we wait between requests
+    - We limit the max load we present to your server to less than a half of one of your cpu cores
+        - The more loaded your server is, the longer we wait between requests!
     - We respect Crawl-delay from robots.txt (see section below), so you can tell us an acceptable rate
     - Scarper developers can
-        - reduce the max_load we present to your server even lower
+        - reduce the max_load we present to your server even further
         - add random extra delays to give your server a chance to catch up with background tasks
 
 - **Identify themselves**: Our user agent clearly indicates who we are and provides a link to the project repository:
