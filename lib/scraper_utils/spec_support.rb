@@ -6,11 +6,34 @@ module ScraperUtils
   # Methods to support specs
   module SpecSupport
     AUSTRALIAN_STATES = %w[ACT NSW NT QLD SA TAS VIC WA].freeze
-    COMMON_STREET_TYPES =
-      %w[
-        Avenue Ave Boulevard Court Crt Circle Chase Circuit Close Crescent
-        Drive Drv Lane Loop Parkway Place Parade Road Rd Street St Square Terrace Way
-      ].freeze
+    STREET_TYPE_PATTERNS = [
+      /\bAv(e(nue)?)?\b/i,
+      /\bB(oulevard|lvd)\b/i,
+      /\b(Circuit|Cct)\b/i,
+      /\bCl(ose)?\b/i,
+      /\bC(our|r)t\b/i,
+      /\bCircle\b/i,
+      /\bChase\b/i,
+      /\bCr(escent)?\b/i,
+      /\bDr((ive)?|v)\b/i,
+      /\bEnt(rance)?\b/i,
+      /\bGr(ove)?\b/i,
+      /\bH(ighwa|w)y\b/i,
+      /\bLane\b/i,
+      /\bLoop\b/i,
+      /\bParkway\b/i,
+      /\bPl(ace)?\b/i,
+      /\bPriv(ate)?\b/i,
+      /\bParade\b/i,
+      /\bR(oa)?d\b/i,
+      /\bRise\b/i,
+      /\bSt(reet)?\b/i,
+      /\bSquare\b/i,
+      /\bTerrace\b/i,
+      /\bWay\b/i
+    ].freeze
+
+
     AUSTRALIAN_POSTCODES = /\b\d{4}\b/.freeze
 
     # Check if an address is likely to be geocodable by analyzing its format.
@@ -25,11 +48,12 @@ module ScraperUtils
       has_state = AUSTRALIAN_STATES.any? { |state| check_address.end_with?(" #{state}") || check_address.include?(" #{state} ") }
       has_postcode = address.match?(AUSTRALIAN_POSTCODES)
 
-      has_street_type = COMMON_STREET_TYPES.any? { |type| check_address.include?(" #{type}") || check_address.include?(" #{type.upcase}") }
+      # Using the pre-compiled patterns
+      has_street_type = STREET_TYPE_PATTERNS.any? { |pattern| check_address.match?(pattern) }
 
       has_unit_or_lot = address.match?(/\b(Unit|Lot:?)\s+\d+/i)
 
-      has_suburb_stats = check_address.match?(/\b[A-Z]{2,}(\s+[A-Z]+)*,?\s+(#{AUSTRALIAN_STATES.join('|')})\b/)
+      has_suburb_stats = check_address.match?(/(\b[A-Z]{2,}(\s+[A-Z]+)*,?|,\s+[A-Z][A-Za-z ]+)\s+(#{AUSTRALIAN_STATES.join('|')})\b/)
 
       if ENV["DEBUG"]
         missing = []
@@ -38,7 +62,7 @@ module ScraperUtils
         end
         missing << "state" unless has_state
         missing << "postcode" unless has_postcode
-        missing << "#{ignore_case ? '' : 'uppercase '}suburb state" unless has_suburb_stats
+        missing << "suburb state" unless has_suburb_stats
         puts "  address: #{address} is not geocodable, missing #{missing.join(', ')}" if missing.any?
       end
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.1 - 2025-04-15
+
+* Accept mixed case suburb names after a comma as well as uppercase suburb names as geocachable
+* Accept more street type abbreviations and check they are on word boundaries
+
 ## 0.7.0 - 2025-04-15
 
 * Added Spec helpers and associated doc: `docs/enhancing_specs.md`
