@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.2 - 2025-04-15
+
+* Accept postcode before state as well as after
+
 ## 0.7.1 - 2025-04-15
 
 * Accept mixed case suburb names after a comma as well as uppercase suburb names as geocachable

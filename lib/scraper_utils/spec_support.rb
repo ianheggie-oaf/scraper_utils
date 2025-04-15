@@ -11,10 +11,10 @@ module ScraperUtils
       /\bB(oulevard|lvd)\b/i,
       /\b(Circuit|Cct)\b/i,
       /\bCl(ose)?\b/i,
-      /\bC(our|r)t\b/i,
+      /\bC(our|r)?t\b/i,
       /\bCircle\b/i,
       /\bChase\b/i,
-      /\bCr(escent)?\b/i,
+      /\bCr(es(cent)?)?\b/i,
       /\bDr((ive)?|v)\b/i,
       /\bEnt(rance)?\b/i,
       /\bGr(ove)?\b/i,
@@ -32,7 +32,6 @@ module ScraperUtils
       /\bTerrace\b/i,
       /\bWay\b/i
     ].freeze
-
 
     AUSTRALIAN_POSTCODES = /\b\d{4}\b/.freeze
 
@@ -53,7 +52,7 @@ module ScraperUtils
 
       has_unit_or_lot = address.match?(/\b(Unit|Lot:?)\s+\d+/i)
 
-      has_suburb_stats = check_address.match?(/(\b[A-Z]{2,}(\s+[A-Z]+)*,?|,\s+[A-Z][A-Za-z ]+)\s+(#{AUSTRALIAN_STATES.join('|')})\b/)
+      has_suburb_stats = check_address.match?(/(\b[A-Z]{2,}(\s+[A-Z]+)*,?|,\s+[A-Z][A-Za-z ]+)(\s+\d{4})?\s+(#{AUSTRALIAN_STATES.join('|')})\b/)
 
       if ENV["DEBUG"]
         missing = []
