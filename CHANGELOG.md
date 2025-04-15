@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.0 - 2025-04-15
+
+* Added Spec helpers and associated doc: `docs/enhancing_specs.md`
+  * `ScraperUtils::SpecSupport.geocodable?`
+  * `ScraperUtils::SpecSupport.reasonable_description?`
+
 ## 0.6.1 - 2025-03-28
 
 * Changed DEFAULT_MAX_LOAD to 50.0 as we are overestimating the load we present as network latency is included
