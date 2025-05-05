@@ -1,0 +1,26 @@
+# frozen_string_literal: true
+
+source "https://rubygems.org"
+
+ruby "~> 3.2.2"
+
+gem "mechanize", "~> 2.8.5"
+gem "nokogiri", "~> 1.15.0"
+gem "sqlite3", "~> 1.6.3"
+
+# Unable to list in gemspec - Include it in your projects Gemfile when using this gem
+gem "scraperwiki", git: "https://github.com/openaustralia/scraperwiki-ruby.git",
+                   branch: "morph_defaults"
+
+# development and test gems
+gem "rake", "~> 13.0"
+gem "rspec", "~> 3.12"
+gem "rubocop", "~> 1.73"
+gem "rubocop-rake", "~> 0.7"
+gem "rubocop-rspec", "~> 3.5"
+gem "simplecov", "~> 0.22.0"
+gem "simplecov-console"
+gem "terminal-table"
+gem "webmock", "~> 3.19.0"
+gem "yard"
+
