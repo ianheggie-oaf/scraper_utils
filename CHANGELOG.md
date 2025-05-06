@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.1 - 2025-05-06
+
+* Removed debugging output accidentally left in
+
 ## 0.8.0 - 2025-05-06
 
 * Added ScraperUtils::LogUtils.project_backtrace_line to provide the first project related backtrace line

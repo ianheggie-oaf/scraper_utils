@@ -150,7 +150,6 @@ module ScraperUtils
         expect_bad_prefix = expect_bad.include?(authority) ? "[EXPECT BAD] " : ""
         exception_msg = if exceptions[authority]
                           location = self.project_backtrace_line(exceptions[authority].backtrace, format: true)
-                          puts "LOCATION: #{location.inspect}"
                           "#{exceptions[authority].class} - #{exceptions[authority]}#{location}"
                         else
                           "-"
