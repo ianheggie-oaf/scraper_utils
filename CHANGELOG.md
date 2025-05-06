@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.2 - 2025-05-07
+
+* Ignore blank dates supplied when validating rather than complain they are not valid
+
 ## 0.8.1 - 2025-05-06
 
 * Removed debugging output accidentally left in

@@ -21,10 +21,10 @@ module ScraperUtils
 
       # Validate date formats
       %w[date_scraped date_received on_notice_from on_notice_to].each do |date_field|
-        Date.parse(record[date_field]) if record[date_field]
+        Date.parse(record[date_field]) unless record[date_field].to_s.empty?
       rescue ArgumentError
         raise ScraperUtils::UnprocessableRecord,
-              "Invalid date format for #{date_field}: #{record[date_field]}"
+              "Invalid date format for #{date_field}: #{record[date_field].inspect}"
       end
 
       # Determine primary key based on presence of authority_label
