@@ -127,7 +127,7 @@ module ScraperUtils
           uri = begin
                   URI.parse(ScraperUtils.australian_proxy.to_s)
                 rescue URI::InvalidURIError => e
-                  raise URI::InvalidURIError, "Invalid proxy URL format: #{e.message}"
+                  raise URI::InvalidURIError, "Invalid proxy URL format: #{e}"
                 end
           unless uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
             raise URI::InvalidURIError, "Proxy URL must start with http:// or https://"

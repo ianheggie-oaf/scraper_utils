@@ -67,7 +67,7 @@ module ScraperUtils
           "records_saved" => stats[:saved] || 0,
           "unprocessable_records" => stats[:unprocessed] || 0,
           "status" => status.to_s,
-          "error_message" => exception&.message,
+          "error_message" => exception&.to_s,
           "error_class" => exception&.class&.to_s,
           "error_backtrace" => extract_meaningful_backtrace(exception)
         }
@@ -86,6 +86,38 @@ module ScraperUtils
       )
 
       cleanup_old_records
+    end
+
+    # Extracts the first relevant line from backtrace that's from our project
+    # (not from gems, vendor, or Ruby standard library)
+    #
+    # @param backtrace [Array<String>] The exception backtrace
+    # @param options [Hash] Options hash
+    # @option options [String] :pwd The project root directory (defaults to current working directory)
+    # @option options [Boolean] :format If true, returns formatted string with brackets
+    # @return [String, nil] The relevant backtrace line without PWD prefix, or nil if none found
+    def self.project_backtrace_line(backtrace, options = {})
+      return nil if backtrace.nil? || backtrace.empty?
+
+      # Set defaults
+      pwd = options[:pwd] || Dir.pwd
+      format = options[:format] || false
+
+      # Normalize the root directory path with a trailing slash
+      pwd = File.join(pwd, '')
+
+      backtrace.each do |line|
+        next if line.include?('/gems/') ||
+                line.include?('/vendor/') ||
+                line.include?('/ruby/')
+
+        if line.start_with?(pwd)
+          relative_path = line.sub(pwd, '')
+          return format ? " [#{relative_path}]" : relative_path
+        end
+      end
+
+      format ? "" : nil
     end
 
     # Report on the results
@@ -117,12 +149,14 @@ module ScraperUtils
 
         expect_bad_prefix = expect_bad.include?(authority) ? "[EXPECT BAD] " : ""
         exception_msg = if exceptions[authority]
-                          "#{exceptions[authority].class} - #{exceptions[authority].message}"
+                          location = self.project_backtrace_line(exceptions[authority].backtrace, format: true)
+                          puts "LOCATION: #{location.inspect}"
+                          "#{exceptions[authority].class} - #{exceptions[authority]}#{location}"
                         else
                           "-"
                         end
         puts format(summary_format, authority.to_s, ok_records, bad_records,
-                    "#{expect_bad_prefix}#{exception_msg}".slice(0, 70))
+                    "#{expect_bad_prefix}#{exception_msg}".slice(0, 250))
       end
       puts
 
@@ -149,7 +183,7 @@ module ScraperUtils
                   "(Add to MORPH_EXPECT_BAD?)"
         unexpected_errors.each do |authority|
           error = exceptions[authority]
-          errors << "  #{authority}: #{error.class} - #{error.message}"
+          errors << "  #{authority}: #{error.class} - #{error}"
         end
       end
 
@@ -212,7 +246,7 @@ module ScraperUtils
 
       lines = []
       error.backtrace.each do |line|
-        lines << line if lines.length < 2 || !line.include?("/vendor/")
+        lines << line if lines.length < 2 || !(line.include?("/vendor/") || line.include?("/gems/") || line.include?("/ruby/"))
         break if lines.length >= 6
       end
 

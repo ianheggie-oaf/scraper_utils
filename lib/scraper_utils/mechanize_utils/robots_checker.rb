@@ -78,7 +78,7 @@ module ScraperUtils
         rescue StandardError => e
           if DebugUtils.basic?
             ScraperUtils::LogUtils.log(
-              "WARNING: Failed to fetch robots.txt for #{domain}: #{e.message}"
+              "WARNING: Failed to fetch robots.txt for #{domain}: #{e}"
             )
           end
           nil

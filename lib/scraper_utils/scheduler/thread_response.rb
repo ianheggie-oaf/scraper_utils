@@ -51,7 +51,7 @@ module ScraperUtils
       # @return [String] Readable representation
       def inspect
         status = success? ? "success" : "FAILED"
-        error_info = success? ? "" : " - #{error.class}: #{error.message}"
+        error_info = success? ? "" : " - #{error.class}: #{error}"
         "#<#{self.class} authority=#{authority} #{status}#{error_info} time=#{time_taken}>"
       end
     end

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0 - 2025-05-06
+
+* Added ScraperUtils::LogUtils.project_backtrace_line to provide the first project related backtrace line
+* Included this summarized line in ScraperUtils::LogUtils.report_on_results report
+* Allow upto 250 character error message (was max 50)
+
 ## 0.7.2 - 2025-04-15
 
 * Accept postcode before state as well as after
