@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.3 - 2025-07-01
+
+* Fix code example in `docs/enhancing_specs.md`
+* Expand test for geocodeable addresses to include comma between postcode and state at end of address.
+
 ## 0.8.2 - 2025-05-07
 
 * Ignore blank dates supplied when validating rather than complain they are not valid

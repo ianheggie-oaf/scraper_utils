@@ -52,7 +52,7 @@ module ScraperUtils
 
       has_unit_or_lot = address.match?(/\b(Unit|Lot:?)\s+\d+/i)
 
-      has_suburb_stats = check_address.match?(/(\b[A-Z]{2,}(\s+[A-Z]+)*,?|,\s+[A-Z][A-Za-z ]+)(\s+\d{4})?\s+(#{AUSTRALIAN_STATES.join('|')})\b/)
+      has_suburb_states = check_address.match?(/(\b[A-Z]{2,}(\s+[A-Z]+)*,?|,\s+[A-Z][A-Za-z ]+)(\s+\d{4},?)?\s+(#{AUSTRALIAN_STATES.join('|')})\b/)
 
       if ENV["DEBUG"]
         missing = []
@@ -65,7 +65,7 @@ module ScraperUtils
         puts "  address: #{address} is not geocodable, missing #{missing.join(', ')}" if missing.any?
       end
 
-      (has_street_type || has_unit_or_lot) && has_state && has_postcode && has_suburb_stats
+      (has_street_type || has_unit_or_lot) && has_state && has_postcode && has_suburb_states
     end
 
     PLACEHOLDERS = [
