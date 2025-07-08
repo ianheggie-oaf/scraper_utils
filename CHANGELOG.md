@@ -21,8 +21,9 @@
 - Code example in `docs/enhancing_specs.md` to reflect new support methods
 
 ### Removed
-- Unused RandomizeUtils
+- Unsued CycleUtils
 - Unused DateRangeUtils
+- Unused RandomizeUtils
 
 ## 0.8.2 - 2025-05-07
 

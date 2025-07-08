@@ -83,25 +83,7 @@ RSpec.describe ScraperUtils::MechanizeActions do
       expect(result.body).to include("Search Results for 2025-03-12")
       expect(action_processor.results[0][:target]).to eq("Search for dates")
     end
-    
-    it "applies replacements to an array of options" do
-      replacements = { "OPT" => "Option 1" }
-      action_processor = described_class.new(agent, replacements)
-            
-      actions = [
-        [:click, ["Invalid Option", "{OPT}", "Other Option"]]
-      ]
-      
-      # Force CycleUtils to pick the option with replacement
-      allow(ScraperUtils::CycleUtils).to receive(:pick).and_return("{OPT}")
 
-      result = action_processor.process(page, actions)
-
-      expect(result).to be_a(Mechanize::Page)
-      expect(result.body).to include("Option 1 Page")
-      expect(action_processor.results[0][:target]).to eq("Option 1")
-    end
-    
     it "handles case-insensitive matching when no exact match found" do
       # Create a page with case-sensitive text
       stub_request(:get, "http://example.com/case-test")

@@ -4,7 +4,6 @@ require "scraper_utils/version"
 
 # Public Apis (responsible for requiring their own dependencies)
 require "scraper_utils/authority_utils"
-require "scraper_utils/cycle_utils"
 require "scraper_utils/data_quality_monitor"
 require "scraper_utils/db_utils"
 require "scraper_utils/debug_utils"

@@ -9,7 +9,6 @@ module ScraperUtils
   #   
   #   actions = [
   #     [:click, "Next Page"],
-  #     [:click, ["Option A", "xpath://div[@id='results']/a", "css:.some-button"]] # Will select one randomly
   #   ]
   #   
   #   processor = ScraperUtils::MechanizeActions.new(agent)
@@ -100,7 +99,7 @@ module ScraperUtils
     def handle_click(page, args)
       target = args.shift
       if target.is_a?(Array)
-        target = ScraperUtils::CycleUtils.pick(target, date: @replacements[:TODAY])
+        target = target.first
       end
       target = apply_replacements(target)
       element = select_element(page, target)

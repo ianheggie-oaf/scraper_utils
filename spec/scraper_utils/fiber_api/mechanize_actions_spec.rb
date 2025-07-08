@@ -85,21 +85,6 @@ RSpec.describe ScraperUtils::MechanizeActions do
       expect(mechanize_actions.results[0][:target]).to eq("Duplicate Text")
     end
 
-    it "selects from an array of options for a click action" do
-      allow(ScraperUtils::CycleUtils).to receive(:pick).and_return("Option 1")
-      
-      actions = [
-        [:click, ["Invalid Option", "Option 1", "Option 2"]]
-      ]
-
-      result = mechanize_actions.process(page, actions)
-
-      expect(result).to be_a(Mechanize::Page)
-      expect(result.body).to include("Option 1 Page")
-      expect(mechanize_actions.results[0][:action]).to eq(:click)
-      expect(mechanize_actions.results[0][:target]).to eq("Option 1")
-    end
-
     it "applies replacements to action parameters" do
       replacements = { "TEST" => "Option 1" }
       action_processor = described_class.new(agent, replacements)
