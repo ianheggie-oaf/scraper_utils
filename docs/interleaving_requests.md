@@ -19,15 +19,3 @@ To enable fiber scheduling, change your scrape method as per
 Use {ScraperUtils::LogUtils.log} instead of `puts` when logging within the authority processing code.
 This will prefix the output lines with the authority name, which is needed since the system will interleave the work and
 thus the output.
-
-## Testing Considerations
-
-This uses {ScraperUtils::RandomizeUtils} for determining the order of operations. Remember to add the following line to
-`spec/spec_helper.rb`:
-
-```ruby
-ScraperUtils::RandomizeUtils.random = false
-ScraperUtils::Scheduler.max_workers = 1
-```
-
-For full details, see the {Scheduler}.
