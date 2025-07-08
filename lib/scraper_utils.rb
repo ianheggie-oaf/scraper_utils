@@ -12,7 +12,6 @@ require "scraper_utils/maths_utils"
 require "scraper_utils/spec_support"
 
 # Mechanize utilities
-require "scraper_utils/mechanize_actions"
 require "scraper_utils/mechanize_utils"
 
 # Utilities for planningalerts scrapers
