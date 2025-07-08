@@ -1,0 +1,23 @@
+# Scraper validation configuration
+# Copy this to .scraper_validation.yml and customize as needed
+
+# Database settings
+database: "data.sqlite"
+
+# Address validation (percentage of addresses that should be geocodable)
+geocodable_percentage: 70
+geocodable_variation: 3
+
+# Description validation (percentage of descriptions that should be reasonable)
+description_percentage: 55
+description_variation: 3
+
+# Info URL validation (percentage of detail checks that should pass)
+info_url_percentage: 75
+info_url_variation: 3
+
+# Bot protection (set to true if info URLs use reCAPTCHA/Cloudflare)
+bot_check_expected: false
+
+# Global info URL (leave blank for auto-detection)
+# global_info_url: "https://example.com/search"

@@ -1,9 +1,13 @@
 # Enhancing specs
 
-ScraperUtils provides two methods to help with checking results
+ScraperUtils provides validation methods to help with checking scraping results:
 
-* `ScraperUtils::SpecSupport.geocodable?`
-* `ScraperUtils::SpecSupport.reasonable_description?`
+* `ScraperUtils::SpecSupport.geocodable?` - Check if an address is likely to be geocodable
+* `ScraperUtils::SpecSupport.reasonable_description?` - Check if a description looks reasonable
+* `ScraperUtils::SpecSupport.validate_addresses_are_geocodable!` - Validate percentage of geocodable addresses
+* `ScraperUtils::SpecSupport.validate_descriptions_are_reasonable!` - Validate percentage of reasonable descriptions
+* `ScraperUtils::SpecSupport.validate_uses_one_valid_info_url!` - Validate single global info_url usage and availability
+* `ScraperUtils::SpecSupport.validate_info_urls_have_expected_details!` - Validate info_urls contain expected content
 
 ## Example Code:
 
@@ -14,6 +18,12 @@ require "timecop"
 require_relative "../scraper"
 
 RSpec.describe Scraper do
+  # Authorities that use bot protection (reCAPTCHA, Cloudflare, etc.) on detail pages (info_url)
+  AUTHORITIES_WITH_BOT_PROTECTION = %i[
+    some_authority
+    another_authority
+  ].freeze
+
   describe ".scrape" do
     def test_scrape(authority)
       ScraperWiki.close_sqlite
@@ -45,48 +55,20 @@ RSpec.describe Scraper do
 
       expect(results).to eq expected
 
-      geocodable = results
-                     .map { |record| record["address"] }
-                     .uniq
-                     .count { |text| ScraperUtils::SpecSupport.geocodable? text }
-      puts "Found #{geocodable} out of #{results.count} unique geocodable addresses " \
-        "(#{(100.0 * geocodable / results.count).round(1)}%)"
-      expect(geocodable).to be > (0.7 * results.count)
+      # Validate addresses are geocodable (70% minimum with 3 records variation)
+      ScraperUtils::SpecSupport.validate_addresses_are_geocodable!(results, percentage: 70, variation: 3)
 
-      descriptions = results
-                       .map { |record| record["description"] }
-                       .uniq
-                       .count do |text|
-        selected = ScraperUtils::SpecSupport.reasonable_description? text
-        puts "  description: #{text} is not reasonable" if ENV["DEBUG"] && !selected
-        selected
-      end
-      puts "Found #{descriptions} out of #{results.count} unique reasonable descriptions " \
-             "(#{(100.0 * descriptions / results.count).round(1)}%)"
-      expect(descriptions).to be > (0.55 * results.count)
+      # Validate descriptions are reasonable (55% minimum with 3 records variation)
+      ScraperUtils::SpecSupport.validate_descriptions_are_reasonable!(results, percentage: 55, variation: 3)
 
-      info_urls = results
-                  .map { |record| record["info_url"] }
-                  .uniq
-                  .count { |text| text.to_s.match(%r{\Ahttps?://}) }
-      puts "Found #{info_urls} out of #{results.count} unique info_urls " \
-             "(#{(100.0 * info_urls / results.count).round(1)}%)"
-      expect(info_urls).to be > (0.7 * results.count) if info_urls != 1
+      # Validate info_urls based on authority configuration
+      global_info_url = Scraper::AUTHORITIES[authority][:info_url]
+      bot_check_expected = AUTHORITIES_WITH_BOT_PROTECTION.include?(authority)
 
-      VCR.use_cassette("#{authority}.info_urls") do
-        results.each do |record|
-          info_url = record["info_url"]
-          puts "Checking info_url #{info_url} #{info_urls > 1 ? ' has expected details' : ''} ..."
-          response = Net::HTTP.get_response(URI(info_url))
-
-          expect(response.code).to eq("200")
-          # If info_url is the same for all records, then it won't have details
-          break if info_urls == 1
-
-          expect(response.body).to include(record["council_reference"])
-          expect(response.body).to include(record["address"])
-          expect(response.body).to include(record["description"])
-        end
+      if global_info_url
+        ScraperUtils::SpecSupport.validate_uses_one_valid_info_url!(results, global_info_url, bot_check_expected: bot_check_expected)
+      else
+        ScraperUtils::SpecSupport.validate_info_urls_have_expected_details!(results, percentage: 75, variation: 3, bot_check_expected: bot_check_expected)
       end
     end
 
@@ -97,5 +79,45 @@ RSpec.describe Scraper do
     end
   end
 end
-
 ```
+
+## Individual validation methods:
+
+### Address validation
+
+```ruby
+# Check if single address is geocodable
+ScraperUtils::SpecSupport.geocodable?('123 Smith Street, Sydney NSW 2000')
+
+# Validate percentage of geocodable addresses
+ScraperUtils::SpecSupport.validate_addresses_are_geocodable!(results, percentage: 50, variation: 3)
+```
+
+### Description validation
+
+```ruby
+# Check if single description is reasonable
+ScraperUtils::SpecSupport.reasonable_description?('Construction of new building')
+
+# Validate percentage of reasonable descriptions
+ScraperUtils::SpecSupport.validate_descriptions_are_reasonable!(results, percentage: 50, variation: 3)
+```
+
+### Info URL validation
+
+```ruby
+# For authorities with global info_url
+ScraperUtils::SpecSupport.validate_uses_one_valid_info_url!(results, 'https://example.com/search')
+
+# For authorities with bot protection
+ScraperUtils::SpecSupport.validate_uses_one_valid_info_url!(results, 'https://example.com/search', bot_check_expected: true)
+
+# For authorities with unique info_urls per record
+ScraperUtils::SpecSupport.validate_info_urls_have_expected_details!(results, percentage: 75, variation: 3)
+
+# For authorities with unique info_urls that may have bot protection
+ScraperUtils::SpecSupport.validate_info_urls_have_expected_details!(results, percentage: 75, variation: 3, bot_check_expected: true)
+```
+
+All validation methods accept `percentage` (minimum percentage required) and `variation` (additional tolerance)
+parameters for consistent configuration.

@@ -1,0 +1,150 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "optparse"
+require "sqlite3"
+require "yaml"
+require "scraper_utils"
+
+# Default validation options
+options = {
+  database: "data.sqlite",
+  geocodable_percentage: 50,
+  geocodable_variation: 3,
+  description_percentage: 50,
+  description_variation: 3,
+  info_url_percentage: 75,
+  info_url_variation: 3,
+  bot_check_expected: false,
+  global_info_url: nil
+}
+
+# Load config file if it exists
+config_file = ".scraper_validation.yml"
+if File.exist?(config_file)
+  begin
+    config = YAML.safe_load(File.read(config_file), symbolize_names: true)
+    options.merge!(config) if config
+    puts "Loaded config from #{config_file}"
+  rescue => e
+    puts "Warning: Could not load #{config_file}: #{e.message}"
+  end
+end
+
+OptionParser.new do |opts|
+  opts.banner = "Usage: validate_scraper_data [options]"
+
+  opts.on("-d", "--database PATH", "SQLite database path (default: data.sqlite)") do |db|
+    options[:database] = db
+  end
+
+  opts.on("-g", "--geocodable-percentage N", Integer, "Min percentage of geocodable addresses (default: 50)") do |n|
+    options[:geocodable_percentage] = n
+  end
+
+  opts.on("-r", "--description-percentage N", Integer, "Min percentage of reasonable descriptions (default: 50)") do |n|
+    options[:description_percentage] = n
+  end
+
+  opts.on("-u", "--info-url-percentage N", Integer, "Min percentage for info URL validation (default: 75)") do |n|
+    options[:info_url_percentage] = n
+  end
+
+  opts.on("-v", "--variation N", Integer, "Variation tolerance for all validations (default: 3)") do |n|
+    options[:geocodable_variation] = n
+    options[:description_variation] = n
+    options[:info_url_variation] = n
+  end
+
+  opts.on("-b", "--bot-check-expected", "Expect bot protection on info URLs") do
+    options[:bot_check_expected] = true
+  end
+
+  opts.on("-i", "--global-info-url URL", "Validate all records use this global info URL (auto-detected if all URLs are the same)") do |url|
+    options[:global_info_url] = url
+  end
+
+  opts.on("-c", "--config FILE", "Load config from YAML file (default: .scraper_validation.yml)") do |file|
+    config_file = file
+  end
+
+  opts.on("-h", "--help", "Show this help") do
+    puts opts
+    exit
+  end
+end.parse!
+
+# Check database exists
+unless File.exist?(options[:database])
+  puts "Error: Database file '#{options[:database]}' not found"
+  exit 1
+end
+
+# Read data from SQLite
+begin
+  db = SQLite3::Database.new(options[:database])
+  db.results_as_hash = true
+  results = db.execute("SELECT * FROM data ORDER BY council_reference")
+  db.close
+rescue SQLite3::Exception => e
+  puts "Error reading database: #{e.message}"
+  exit 1
+end
+
+if results.empty?
+  puts "No data found in database"
+  exit 1
+end
+
+puts "Validating #{results.count} records from #{options[:database]}..."
+
+# Auto-detect global info URL if not specified
+if options[:global_info_url].nil?
+  info_urls = results.map { |record| record["info_url"] }.compact.uniq
+  if info_urls.size == 1
+    options[:global_info_url] = info_urls.first
+    puts "Auto-detected global info_url: #{options[:global_info_url]}"
+  end
+end
+
+puts
+
+begin
+  # Validate addresses are geocodable
+  ScraperUtils::SpecSupport.validate_addresses_are_geocodable!(
+    results,
+    percentage: options[:geocodable_percentage],
+    variation: options[:geocodable_variation]
+  )
+
+  # Validate descriptions are reasonable
+  ScraperUtils::SpecSupport.validate_descriptions_are_reasonable!(
+    results,
+    percentage: options[:description_percentage],
+    variation: options[:description_variation]
+  )
+
+  # Validate info URLs
+  if options[:global_info_url]
+    ScraperUtils::SpecSupport.validate_uses_one_valid_info_url!(
+      results,
+      options[:global_info_url],
+      bot_check_expected: options[:bot_check_expected]
+    )
+  else
+    ScraperUtils::SpecSupport.validate_info_urls_have_expected_details!(
+      results,
+      percentage: options[:info_url_percentage],
+      variation: options[:info_url_variation],
+      bot_check_expected: options[:bot_check_expected]
+    )
+  end
+
+  puts
+  puts "✅ All validations passed!"
+
+rescue RuntimeError => e
+  puts
+  puts "❌ Validation failed: #{e.message}"
+  exit 1
+end

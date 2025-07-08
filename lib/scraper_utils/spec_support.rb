@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "scraperwiki"
+require "cgi"
 
 module ScraperUtils
   # Methods to support specs
@@ -35,6 +36,41 @@ module ScraperUtils
 
     AUSTRALIAN_POSTCODES = /\b\d{4}\b/.freeze
 
+    def self.fetch_url_with_redirects(url)
+      agent = Mechanize.new
+      # FIXME - Allow injection of a check to agree to terms if needed to set a cookie and reget the url
+      agent.get(url)
+    end
+
+    def self.authority_label(results, prefix: '', suffix: '')
+      return nil if results.nil?
+
+      authority_labels = results.map { |record| record['authority_label']}.compact.uniq
+      return nil if authority_labels.empty?
+
+      raise "Expected one authority_label, not #{authority_labels.inspect}" if authority_labels.size > 1
+      "#{prefix}#{authority_labels.first}#{suffix}"
+    end
+
+    # Validates enough addresses are geocodable
+    # @param results [Array<Hash>] The results from scraping an authority
+    # @param percentage [Integer] The min percentage of addresses expected to be geocodable (default:50)
+    # @param variation [Integer] The variation allowed in addition to percentage (default:3)
+    # @raise RuntimeError if insufficient addresses are geocodable
+    def self.validate_addresses_are_geocodable!(results, percentage: 50, variation: 3)
+      return nil if results.empty?
+
+      geocodable = results
+                     .map { |record| record["address"] }
+                     .uniq
+                     .count { |text| ScraperUtils::SpecSupport.geocodable? text }
+      puts "Found #{geocodable} out of #{results.count} unique geocodable addresses " \
+             "(#{(100.0 * geocodable / results.count).round(1)}%)"
+      expected = [((percentage.to_f / 100.0) * results.count - variation), 1].max
+      raise "Expected at least #{expected} (#{percentage}% - #{variation}) geocodable addresses, got #{geocodable}" unless geocodable >= expected
+      geocodable
+    end
+
     # Check if an address is likely to be geocodable by analyzing its format.
     # This is a bit stricter than needed - typically assert >= 75% match
     # @param address [String] The address to check
@@ -61,7 +97,7 @@ module ScraperUtils
         end
         missing << "state" unless has_state
         missing << "postcode" unless has_postcode
-        missing << "suburb state" unless has_suburb_stats
+        missing << "suburb state" unless has_suburb_states
         puts "  address: #{address} is not geocodable, missing #{missing.join(', ')}" if missing.any?
       end
 
@@ -80,11 +116,114 @@ module ScraperUtils
       PLACEHOLDERS.any? { |placeholder| text.to_s.match?(placeholder) }
     end
 
+    # Validates enough descriptions are reasonable
+    # @param results [Array<Hash>] The results from scraping an authority
+    # @param percentage [Integer] The min percentage of descriptions expected to be reasonable (default:50)
+    # @param variation [Integer] The variation allowed in addition to percentage (default:3)
+    # @raise RuntimeError if insufficient descriptions are reasonable
+    def self.validate_descriptions_are_reasonable!(results, percentage: 50, variation: 3)
+      return nil if results.empty?
+
+      descriptions = results
+                       .map { |record| record["description"] }
+                       .uniq
+                       .count do |text|
+        selected = ScraperUtils::SpecSupport.reasonable_description? text
+        puts "  description: #{text} is not reasonable" if ENV["DEBUG"] && !selected
+        selected
+      end
+      puts "Found #{descriptions} out of #{results.count} unique reasonable descriptions " \
+             "(#{(100.0 * descriptions / results.count).round(1)}%)"
+      expected = [(percentage.to_f / 100.0) * results.count - variation, 1].max
+      raise "Expected at least #{expected} (#{percentage}% - #{variation}) reasonable descriptions, got #{descriptions}" unless descriptions >= expected
+      descriptions
+    end
+
     # Check if this looks like a "reasonable" description
     # This is a bit stricter than needed - typically assert >= 75% match
     def self.reasonable_description?(text)
       !placeholder?(text) && text.to_s.split.size >= 3
     end
+
+    # Validates that all records use the expected global info_url and it returns 200
+    # @param results [Array<Hash>] The results from scraping an authority
+    # @param expected_url [String] The expected global info_url for this authority
+    # @raise RuntimeError if records don't use the expected URL or it doesn't return 200
+    def self.validate_uses_one_valid_info_url!(results, expected_url)
+      info_urls = results.map { |record| record["info_url"] }.uniq
+
+      unless info_urls.size == 1
+        raise "Expected all records to use one info_url '#{expected_url}', found: #{info_urls.size}"
+      end
+      unless info_urls.first == expected_url
+        raise "Expected all records to use global info_url '#{expected_url}', found: #{info_urls.first}"
+      end
+
+      puts "Checking the one expected info_url returns 200: #{expected_url}"
+
+      if defined?(VCR)
+        VCR.use_cassette("#{authority_label(results, suffix: '_')}one_info_url") do
+          page = fetch_url_with_redirects(expected_url)
+          raise "Expected 200 response from the one expected info_url, got #{page.code}" unless page.code == "200"
+        end
+      else
+        page = fetch_url_with_redirects(expected_url)
+        raise "Expected 200 response from the one expected info_url, got #{page.code}" unless page.code == "200"
+      end
+    end
+
+    # Validates that info_urls have expected details (unique URLs with content validation)
+    # @param results [Array<Hash>] The results from scraping an authority
+    # @param percentage [Integer] The min percentage of detail checks expected to pass (default:75)
+    # @param variation [Integer] The variation allowed in addition to percentage (default:3)
+    # @raise RuntimeError if insufficient detail checks pass
+    def self.validate_info_urls_have_expected_details!(results, percentage: 75, variation: 3)
+      if defined?(VCR)
+        VCR.use_cassette("#{authority_label(results, suffix: '_')}info_url_details") do
+          check_info_url_details(results, percentage, variation)
+        end
+      else
+        check_info_url_details(results, percentage, variation)
+      end
+    end
+
+    private
+
+    def self.check_info_url_details(results, percentage, variation)
+      count = 0
+      failed = 0
+      fib_indices = ScraperUtils::MathsUtils.fibonacci_series(results.size - 1).uniq
+
+      fib_indices.each do |index|
+        record = results[index]
+        info_url = record["info_url"]
+        puts "Checking info_url[#{index}]: #{info_url} has the expected reference, address and description..."
+
+        page = fetch_url_with_redirects(info_url)
+        raise "Expected 200 response, got #{page.code}" unless page.code == "200"
+
+        # Fix frozen string issue by duplicating before modifying
+        page_body = page.body.dup.force_encoding("UTF-8").gsub(/\s\s+/, " ")
+
+        %w[council_reference address description].each do |attribute|
+          count += 1
+          expected = CGI.escapeHTML(record[attribute]).gsub(/\s\s+/, " ")
+          expected2 = expected.gsub(/(\S+)\s+(\S+)\z/, '\2 \1') # Handle Lismore post-code/state swap
+
+          next if page_body.include?(expected) || page_body.include?(expected2)
+
+          failed += 1
+          puts "  Missing: #{expected}"
+          puts "    IN: #{page_body}" if ENV['DEBUG']
+
+          min_required = [((percentage.to_f / 100.0) * count - variation), 1].max
+          passed = count - failed
+          raise "Too many failures: #{passed}/#{count} passed (min required: #{min_required})" if passed < min_required
+        end
+      end
+
+      puts "#{(100.0 * (count - failed) / count).round(1)}% detail checks passed (#{failed}/#{count} failed)!" if count > 0
+    end
+
   end
 end
-

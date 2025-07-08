@@ -2,8 +2,22 @@
 
 ## 0.8.3 - 2025-07-01
 
-* Fix code example in `docs/enhancing_specs.md`
-* Expand test for geocodeable addresses to include comma between postcode and state at end of address.
+* Refactored example code into simple callable methods
+* Expand test for geocodeable addresses to include comma between postcode and state at the end of the address.
+### Added
+- `ScraperUtils::SpecSupport.validate_addresses_are_geocodable!` - validates percentage of geocodable addresses
+- `ScraperUtils::SpecSupport.validate_descriptions_are_reasonable!` - validates percentage of reasonable descriptions
+- `ScraperUtils::SpecSupport.validate_uses_one_valid_info_url!` - validates single global info_url usage and availability
+- `ScraperUtils::SpecSupport.validate_info_urls_have_expected_details!` - validates info_urls contain expected content
+- `ScraperUtils::MathsUtils.fibonacci_series` - generates fibonacci sequence up to max value
+- `bot_check_expected` parameter to info_url validation methods for handling reCAPTCHA/Cloudflare protection
+
+### Fixed
+- Typo in `geocodable?` method debug output (`has_suburb_stats` → `has_suburb_states`) 
+- Code example in `docs/enhancing_specs.md`
+
+### Updated
+- Code example in `docs/enhancing_specs.md` to reflect new support methods
 
 ## 0.8.2 - 2025-05-07
 

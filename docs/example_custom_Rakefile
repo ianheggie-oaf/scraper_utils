@@ -1,0 +1,38 @@
+# frozen_string_literal: true
+
+# Remember to add scraper_utils to Gemfile!
+
+require "fileutils"
+
+desc "Run scraper and validate results"
+task :test do
+  Rake::Task[:scrape].invoke
+  Rake::Task[:validate].invoke
+end
+
+desc "Run the scraper"
+task :scrape do
+  puts "Running scraper..."
+  FileUtils.rm_f("data.sqlite")
+
+  system("bundle exec ruby scraper.rb") || abort("Scraper failed")
+end
+
+desc "Validate scraped data"
+task :validate do
+  puts "Validating scraped data..."
+
+  unless File.exist?("data.sqlite")
+    abort("No data.sqlite found - run scraper first")
+  end
+
+  system("validate_scraper_data") || abort("Validation failed")
+end
+
+desc "Clean up generated files"
+task :clean do
+  FileUtils.rm_f("data.sqlite")
+  puts "Cleaned up data.sqlite"
+end
+
+task default: :test
