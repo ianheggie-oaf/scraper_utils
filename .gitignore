@@ -1,9 +1,44 @@
+# Scraper specific example
+
+# Ignore output of scraper
+data.sqlite
+
+# Don't save limited scraper runs
+/spec/cassettes/limited_to_*
+/spec/expected/limited_to_*
+
+# ---------------------------
+# Gem ignores 
 *.gem
+/pkg/
+/InstalledFiles
+
+# REMOVE PARAGRAPH IF USING WITH SCRAPERS:
+# for a library or gem, you might want to ignore these files since the code is
+# intended to run in multiple environments; otherwise, check them in:
+Gemfile.lock
+.ruby-version
+.ruby-gemset
+
+# ---------------------------
+# General ignore 
+
+# rspec failure tracking
+.rspec_status
+.release
+.bundle
+.profile.d
+bin
+vendor
+tmp
+.basher/bash
+Procfile
+
+# Spec coverage
+/coverage/
+
 *.rbc
 /.config
-/coverage/
-/InstalledFiles
-/pkg/
 /spec/reports/
 /spec/examples.txt
 /test/tmp/
@@ -64,12 +99,6 @@ build-iPhoneSimulator/
 /vendor/bundle
 /lib/bundler/man/
 
-# for a library or gem, you might want to ignore these files since the code is
-# intended to run in multiple environments; otherwise, check them in:
-Gemfile.lock
-.ruby-version
-.ruby-gemset
-
 # unless supporting rvm < 1.11.0 or doing something fancy, ignore this:
 .rvmrc
 
@@ -78,3 +107,4 @@ Gemfile.lock
 
 # rspec reports
 /.rspec_status
+
