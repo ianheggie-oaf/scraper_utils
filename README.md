@@ -3,43 +3,6 @@ ScraperUtils (Ruby)
 
 Utilities to help make planningalerts scrapers, especially multis, easier to develop, run and debug.
 
-For Server Administrators
--------------------------
-
-The ScraperUtils library is designed to be a respectful citizen of the web. If you're a server administrator and notice
-our scraper accessing your systems, here's what you should know:
-
-### We play nice with your servers
-
-Our goal is to access public planning information with minimal impact on your services. The following features are on by
-default:
-
-- **Limit server load**:
-    - We limit the max load we present to your server to less than a half of one of your cpu cores
-        - The more loaded your server is, the longer we wait between requests!
-    - We respect Crawl-delay from robots.txt (see section below), so you can tell us an acceptable rate
-    - Scarper developers can
-        - reduce the max_load we present to your server even further
-        - add random extra delays to give your server a chance to catch up with background tasks
-
-- **Identify themselves**: Our user agent clearly indicates who we are and provides a link to the project repository:
-  `Mozilla/5.0 (compatible; ScraperUtils/0.2.0 2025-02-22; +https://github.com/ianheggie-oaf/scraper_utils)`
-
-### How to Control Our Behavior
-
-Our scraper utilities respect the standard server **robots.txt** control mechanisms (by default).
-To control our access:
-
-- Add a section for our user agent: `User-agent: ScraperUtils`
-- Set a crawl delay, eg: `Crawl-delay: 20`
-- If needed specify disallowed paths: `Disallow: /private/`
-
-For Scraper Developers
-----------------------
-
-We provide utilities to make developing, running and debugging your scraper easier in addition to the base utilities
-mentioned above.
-
 ## Installation & Configuration
 
 Add to [your scraper's](https://www.planningalerts.org.au/how_to_write_a_scraper) Gemfile:
@@ -57,26 +20,8 @@ see {file:docs/getting_started.md Getting Started guide}
 ### Well-Behaved Web Client
 
 - Configure Mechanize agents with sensible defaults
-- Automatic rate limiting based on server response times
-- Supports robots.txt and crawl-delay directives
 - Supports extra actions required to get to results page
 - {file:docs/mechanize_utilities.md Learn more about Mechanize utilities}
-
-### Optimize Server Load
-
-- Intelligent date range selection (reduce server load by up to 60%)
-- Cycle utilities for rotating search parameters
-- {file:docs/reducing_server_load.md Learn more about reducing server load}
-
-### Improve Scraper Efficiency
-
-- Interleaves requests to optimize run time
-    - {file:docs/interleaving_requests.md Learn more about interleaving requests}
-- Use {ScraperUtils::Scheduler.execute_request} so Mechanize network requests will be performed by threads in parallel
-    - {file:docs/parallel_requests.md Parallel Request} - see Usage section for installation instructions
-- Randomize processing order for more natural request patterns
-    - {file:docs/randomizing_requests.md Learn more about randomizing requests} - see Usage section for installation
-      instructions
 
 ### Error Handling & Quality Monitoring
 
@@ -89,6 +34,13 @@ see {file:docs/getting_started.md Getting Started guide}
 - Enhanced debugging utilities
 - Simple logging with authority context
 - {file:docs/debugging.md Learn more about debugging}
+
+### Spec Validation
+
+- Validate geocodable addresses and reasonable descriptions
+- Check info URL availability and content
+- Support for bot protection detection
+- {file:docs/enhancing_specs.md Learn more about spec validation}
 
 ## API Documentation
 

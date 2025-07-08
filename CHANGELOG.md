@@ -1,6 +1,8 @@
 # Changelog
 
-## 0.8.3 - 2025-07-01
+## 0.9.0 - 2025-07-01
+
+**Significant cleanup - removed code we ended up not using as none of the councils are actually concerned about server load**
 
 * Refactored example code into simple callable methods
 * Expand test for geocodeable addresses to include comma between postcode and state at the end of the address.
