@@ -41,5 +41,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency "mechanize"
   spec.add_dependency "nokogiri"
   spec.add_dependency "sqlite3"
+  # Do NOT add - it depends on a non-default branch spec.add_dependency "scraperwiki"
   spec.metadata["rubygems_mfa_required"] = "true"
 end
