@@ -119,5 +119,21 @@ ScraperUtils::SpecSupport.validate_info_urls_have_expected_details!(results, per
 ScraperUtils::SpecSupport.validate_info_urls_have_expected_details!(results, percentage: 75, variation: 3, bot_check_expected: true)
 ```
 
+## Bot Protection Handling
+
+The `bot_check_expected` parameter allows validation methods to accept bot protection as valid responses:
+
+**When bot protection is detected:**
+
+- HTTP status codes: 403 (Forbidden), 429 (Too Many Requests)
+- Content indicators: "recaptcha", "cloudflare", "are you human", "bot detection", "security check", "verify you are
+  human", "access denied", "blocked", "captcha"
+
+**Usage patterns:**
+
+- Set `bot_check_expected: false` (default) - requires 200 responses, fails on bot protection
+- Set `bot_check_expected: true` - accepts bot protection as valid, useful for authorities known to use anti-bot
+  measures
+
 All validation methods accept `percentage` (minimum percentage required) and `variation` (additional tolerance)
 parameters for consistent configuration.

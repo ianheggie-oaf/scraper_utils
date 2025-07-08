@@ -149,7 +149,7 @@ module ScraperUtils
     # @param results [Array<Hash>] The results from scraping an authority
     # @param expected_url [String] The expected global info_url for this authority
     # @raise RuntimeError if records don't use the expected URL or it doesn't return 200
-    def self.validate_uses_one_valid_info_url!(results, expected_url)
+    def self.validate_uses_one_valid_info_url!(results, expected_url, bot_check_expected: false)
       info_urls = results.map { |record| record["info_url"] }.uniq
 
       unless info_urls.size == 1
@@ -164,11 +164,11 @@ module ScraperUtils
       if defined?(VCR)
         VCR.use_cassette("#{authority_label(results, suffix: '_')}one_info_url") do
           page = fetch_url_with_redirects(expected_url)
-          raise "Expected 200 response from the one expected info_url, got #{page.code}" unless page.code == "200"
+          validate_page_response(page, bot_check_expected)
         end
       else
         page = fetch_url_with_redirects(expected_url)
-        raise "Expected 200 response from the one expected info_url, got #{page.code}" unless page.code == "200"
+        validate_page_response(page, bot_check_expected)
       end
     end
 
@@ -177,19 +177,58 @@ module ScraperUtils
     # @param percentage [Integer] The min percentage of detail checks expected to pass (default:75)
     # @param variation [Integer] The variation allowed in addition to percentage (default:3)
     # @raise RuntimeError if insufficient detail checks pass
-    def self.validate_info_urls_have_expected_details!(results, percentage: 75, variation: 3)
+    def self.validate_info_urls_have_expected_details!(results, percentage: 75, variation: 3, bot_check_expected: false)
       if defined?(VCR)
         VCR.use_cassette("#{authority_label(results, suffix: '_')}info_url_details") do
-          check_info_url_details(results, percentage, variation)
+          check_info_url_details(results, percentage, variation, bot_check_expected)
         end
       else
-        check_info_url_details(results, percentage, variation)
+        check_info_url_details(results, percentage, variation, bot_check_expected)
       end
+    end
+
+    # Check if the page response indicates bot protection
+    # @param page [Mechanize::Page] The page response to check
+    # @return [Boolean] True if bot protection is detected
+    def self.bot_protection_detected?(page)
+      return true if %w[403 429].include?(page.code)
+
+      return false unless page.body
+
+      body_lower = page.body.downcase
+
+      # Check for common bot protection indicators
+      bot_indicators = [
+        'recaptcha',
+        'cloudflare',
+        'are you human',
+        'bot detection',
+        'security check',
+        'verify you are human',
+        'access denied',
+        'blocked',
+        'captcha'
+      ]
+
+      bot_indicators.any? { |indicator| body_lower.include?(indicator) }
+    end
+
+    # Validate page response, accounting for bot protection
+    # @param page [Mechanize::Page] The page response to validate
+    # @param bot_check_expected [Boolean] Whether bot protection is acceptable
+    # @raise RuntimeError if page response is invalid and bot protection not expected
+    def self.validate_page_response(page, bot_check_expected)
+      if bot_check_expected && bot_protection_detected?(page)
+        puts "  Bot protection detected - accepting as valid response"
+        return
+      end
+
+      raise "Expected 200 response from the one expected info_url, got #{page.code}" unless page.code == "200"
     end
 
     private
 
-    def self.check_info_url_details(results, percentage, variation)
+    def self.check_info_url_details(results, percentage, variation, bot_check_expected)
       count = 0
       failed = 0
       fib_indices = ScraperUtils::MathsUtils.fibonacci_series(results.size - 1).uniq
@@ -200,9 +239,14 @@ module ScraperUtils
         puts "Checking info_url[#{index}]: #{info_url} has the expected reference, address and description..."
 
         page = fetch_url_with_redirects(info_url)
+
+        if bot_check_expected && bot_protection_detected?(page)
+          puts "  Bot protection detected - skipping detailed validation"
+          next
+        end
+
         raise "Expected 200 response, got #{page.code}" unless page.code == "200"
 
-        # Fix frozen string issue by duplicating before modifying
         page_body = page.body.dup.force_encoding("UTF-8").gsub(/\s\s+/, " ")
 
         %w[council_reference address description].each do |attribute|

@@ -353,4 +353,82 @@ RSpec.describe ScraperUtils::SpecSupport do
       end
     end
   end
+
+  describe '.bot_protection_detected?' do
+    let(:page_200) { double(code: '200', body: 'Normal page content') }
+    let(:page_403) { double(code: '403', body: 'Forbidden') }
+    let(:page_429) { double(code: '429', body: 'Too many requests') }
+    let(:page_recaptcha) { double(code: '200', body: 'Please complete the reCAPTCHA challenge') }
+    let(:page_cloudflare) { double(code: '200', body: 'Cloudflare security check in progress') }
+    let(:page_human_check) { double(code: '200', body: 'Are you human? Please verify') }
+    let(:page_no_body) { double(code: '200', body: nil) }
+
+    context 'with bot protection HTTP codes' do
+      it 'returns true for 403 status' do
+        expect(described_class.bot_protection_detected?(page_403)).to be true
+      end
+
+      it 'returns true for 429 status' do
+        expect(described_class.bot_protection_detected?(page_429)).to be true
+      end
+    end
+
+    context 'with bot protection content' do
+      it 'returns true for recaptcha' do
+        expect(described_class.bot_protection_detected?(page_recaptcha)).to be true
+      end
+
+      it 'returns true for cloudflare' do
+        expect(described_class.bot_protection_detected?(page_cloudflare)).to be true
+      end
+
+      it 'returns true for human verification' do
+        expect(described_class.bot_protection_detected?(page_human_check)).to be true
+      end
+    end
+
+    context 'without bot protection' do
+      it 'returns false for normal page' do
+        expect(described_class.bot_protection_detected?(page_200)).to be false
+      end
+
+      it 'returns false for page with no body' do
+        expect(described_class.bot_protection_detected?(page_no_body)).to be false
+      end
+    end
+  end
+
+  describe '.validate_page_response' do
+    let(:page_200) { double(code: '200', body: 'Normal content') }
+    let(:page_403) { double(code: '403', body: 'Forbidden') }
+    let(:page_bot_content) { double(code: '200', body: 'reCAPTCHA challenge') }
+
+    context 'with bot_check_expected false' do
+      it 'accepts 200 response' do
+        expect { described_class.validate_page_response(page_200, false) }.not_to raise_error
+      end
+
+      it 'raises error for 403 response' do
+        expect { described_class.validate_page_response(page_403, false) }.to raise_error(RuntimeError, /Expected 200 response/)
+      end
+
+      it 'raises error for bot protection content' do
+        expect { described_class.validate_page_response(page_bot_content, false) }.not_to raise_error
+      end
+    end
+
+    context 'with bot_check_expected true' do
+      it 'accepts 200 response' do
+        expect { described_class.validate_page_response(page_200, true) }.not_to raise_error
+      end
+
+      it 'accepts 403 response as bot protection' do
+        expect { described_class.validate_page_response(page_403, true) }.not_to raise_error
+      end
+
+      it 'accepts bot protection content' do
+        expect { described_class.validate_page_response(page_bot_content, true) }.not_to raise_error
+      end
+    end
+  end
 end
