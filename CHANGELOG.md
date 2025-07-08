@@ -24,6 +24,8 @@
 - Unsued CycleUtils
 - Unused DateRangeUtils
 - Unused RandomizeUtils
+- Unused Scheduling (Fiber and Threads)
+- Compliant mode, delays for Agent (Agent is configured with an agent string)
 
 ## 0.8.2 - 2025-05-07
 

@@ -9,12 +9,12 @@ module ScraperUtils
     LOG_TABLE = "scrape_log"
     LOG_RETENTION_DAYS = 30
 
-    # Logs a message, automatically prefixing with authority name if in a fiber
+    # Logs a message, automatically prefixing with authority name if in a sub process
     #
     # @param message [String] the message to log
     # @return [void]
     def self.log(message, authority = nil)
-      authority ||= Scheduler.current_authority
+      authority ||= ENV['AUTHORITY']
       $stderr.flush
       if authority
         puts "[#{authority}] #{message}"
@@ -174,12 +174,12 @@ module ScraperUtils
 
       # Check for authorities with unexpected errors
       unexpected_errors = authorities
-                          .select { |authority| exceptions[authority] }
-                          .reject { |authority| expect_bad.include?(authority) }
+                            .select { |authority| exceptions[authority] }
+                            .reject { |authority| expect_bad.include?(authority) }
 
       if unexpected_errors.any?
         errors << "ERROR: Unexpected errors in: #{unexpected_errors.join(',')} " \
-                  "(Add to MORPH_EXPECT_BAD?)"
+          "(Add to MORPH_EXPECT_BAD?)"
         unexpected_errors.each do |authority|
           error = exceptions[authority]
           errors << "  #{authority}: #{error.class} - #{error}"

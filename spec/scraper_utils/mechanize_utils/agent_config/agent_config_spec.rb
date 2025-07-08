@@ -19,10 +19,6 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
   end
 
   after(:all) do
-    if Fiber.current != ScraperUtils::Scheduler::Constants::MAIN_FIBER
-      puts "WARNING: Had to resume main fiber"
-      ScraperUtils::Scheduler::Constants::MAIN_FIBER.resume
-    end
     ENV["MORPH_AUSTRALIAN_PROXY"] = nil
     ENV["DEBUG"] = nil
   end
@@ -87,17 +83,6 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
           config.send(:post_connect_hook, nil, uri, response, nil)
         end.to output(/Post Connect uri:.*response: test response/m).to_stdout
       end
-
-      it "logs delay details when delay applied" do
-        config = described_class.new(random_delay: 1, user_agent: "TestAgent")
-        uri = URI("https://example.com")
-        response = double(inspect: "test response")
-        # required for post_connect_hook
-        config.send(:pre_connect_hook, nil, nil)
-        expect do
-          config.send(:post_connect_hook, nil, uri, response, nil)
-        end.to output(/Delaying \d+\.\d+ seconds/).to_stdout
-      end
     end
   end
 
@@ -121,9 +106,6 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
       it "resets all configuration options to their default values" do
         described_class.configure do |config|
           config.default_timeout = 999
-          config.default_compliant_mode = false
-          config.default_random_delay = 99
-          config.default_max_load = 50.0
           config.default_disable_ssl_certificate_check = true
           config.default_australian_proxy = true
           config.default_user_agent = "Test Agent"
@@ -132,31 +114,10 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
         described_class.reset_defaults!
 
         expect(described_class.default_timeout).to eq(ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_TIMEOUT)
-        expect(described_class.default_compliant_mode).to be(true)
-        expect(described_class.default_random_delay).to eq(ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_RANDOM_DELAY)
-        expect(described_class.default_max_load).to eq(ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_MAX_LOAD)
         expect(described_class.default_disable_ssl_certificate_check).to be(false)
         expect(described_class.default_australian_proxy).to eq(false)
         expect(described_class.default_user_agent).to be_nil
       end
-    end
-  end
-
-  describe "random delay calculation" do
-    it "calculates min and max random delays correctly" do
-      config = described_class.new(random_delay: 5)
-
-      expect(config.random_range.first).to be_within(0.01).of(Math.sqrt(5 * 3.0 / 13.0))
-      expect(config.random_range.last).to be_within(0.01).of(3 * config.random_range.first)
-    end
-
-    it "handles nil random delay when default is also nil" do
-      described_class.configure do |config|
-        config.default_random_delay = nil
-      end
-      config = described_class.new(random_delay: nil)
-
-      expect(config.random_range).to be_nil
     end
   end
 
@@ -173,14 +134,14 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
       end
 
       it "replaces TODAY with current date" do
-        config = described_class.new(compliant_mode: true)
+        config = described_class.new
         expect(config.user_agent).to include(/\d{4}-\d\d-\d\d/)
       end
     end
 
     context "with default compliant mode" do
       it "generates a default user agent with ScraperUtils version" do
-        config = described_class.new(compliant_mode: true)
+        config = described_class.new
         expect(config.user_agent).to match(%r{ScraperUtils/\d+\.\d+\.\d+})
         expect(config.user_agent).to include("+https://github.com/ianheggie-oaf/scraper_utils")
       end

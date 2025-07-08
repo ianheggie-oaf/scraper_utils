@@ -29,13 +29,14 @@ RSpec.describe ScraperUtils::LogUtils do
     
     it "uses Scheduler.current_authority when no authority provided" do
       authority = :current_authority
+      ENV['AUTHORITY'] = authority.to_s
       message = "Test message with current authority"
-      
-      allow(ScraperUtils::Scheduler).to receive(:current_authority).and_return(authority)
-      
+
       expect {
         described_class.log(message)
       }.to output(/\[#{authority}\] #{message}/).to_stdout
+    ensure
+      ENV['AUTHORITY'] = nil
     end
   end
 

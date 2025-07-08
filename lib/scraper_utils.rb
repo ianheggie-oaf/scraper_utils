@@ -9,7 +9,6 @@ require "scraper_utils/db_utils"
 require "scraper_utils/debug_utils"
 require "scraper_utils/log_utils"
 require "scraper_utils/maths_utils"
-require "scraper_utils/scheduler"
 require "scraper_utils/spec_support"
 
 # Mechanize utilities
