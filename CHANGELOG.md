@@ -21,6 +21,10 @@
 
 ### Updated
 - Code example in `docs/enhancing_specs.md` to reflect new support methods
+- geocodeable? test is simpler - it requires 
+  - a street type, unit or lot, 
+  - an uppercase word (assumed to be a suburb) or postcode and 
+  - a state
 
 ### Removed
 - Unsued CycleUtils

@@ -64,6 +64,14 @@ RSpec.describe ScraperUtils::SpecSupport do
         expect(described_class.geocodable?('123 Smith Ave, Sydney NSW 2000')).to be true
         expect(described_class.geocodable?('123 Smith Rd, Sydney NSW 2000')).to be true
       end
+
+      it "returns true for camel case street and uppercased suburb and state with commas with DEBUG set" do
+        prev_debug = ENV['DEBUG']
+        ENV['DEBUG'] = '1'
+        expect(described_class.geocodable?('70 Pacific Highway, TUGGERAH, NSW')).to be true
+      ensure
+        ENV['DEBUG'] = prev_debug
+      end
     end
 
     context 'with invalid addresses' do

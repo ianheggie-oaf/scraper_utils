@@ -79,7 +79,7 @@ module ScraperUtils
       return false if address.nil? || address.empty?
       check_address = ignore_case ? address.upcase : address
 
-      # Basic structure check - must have a street name, suburb, state and postcode
+      # Basic structure check - must have a street type or unit/lot, uppercase suburb or postcode, state
       has_state = AUSTRALIAN_STATES.any? { |state| check_address.end_with?(" #{state}") || check_address.include?(" #{state} ") }
       has_postcode = address.match?(AUSTRALIAN_POSTCODES)
 
@@ -88,20 +88,20 @@ module ScraperUtils
 
       has_unit_or_lot = address.match?(/\b(Unit|Lot:?)\s+\d+/i)
 
-      has_suburb_states = check_address.match?(/(\b[A-Z]{2,}(\s+[A-Z]+)*,?|,\s+[A-Z][A-Za-z ]+)(\s+\d{4},?)?\s+(#{AUSTRALIAN_STATES.join('|')})\b/)
+      uppercase_words = address.scan(/\b[A-Z]{2,}\b/)
+      has_uppercase_suburb = uppercase_words.any? { |word| !AUSTRALIAN_STATES.include?(word) }
 
       if ENV["DEBUG"]
         missing = []
         unless has_street_type || has_unit_or_lot
           missing << "street type / unit / lot"
         end
+        missing << "postcode/Uppercase suburb" unless has_postcode || has_uppercase_suburb
         missing << "state" unless has_state
-        missing << "postcode" unless has_postcode
-        missing << "suburb state" unless has_suburb_states
         puts "  address: #{address} is not geocodable, missing #{missing.join(', ')}" if missing.any?
       end
 
-      (has_street_type || has_unit_or_lot) && has_state && has_postcode && has_suburb_states
+      (has_street_type || has_unit_or_lot) && (has_postcode || has_uppercase_suburb) && has_state
     end
 
     PLACEHOLDERS = [
