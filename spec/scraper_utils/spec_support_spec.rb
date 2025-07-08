@@ -83,6 +83,15 @@ RSpec.describe ScraperUtils::SpecSupport do
         expect(described_class.geocodable?('')).to be false
       end
 
+      it 'outputs debug output when DEBUG variable is set' do
+        prev_debug = ENV['DEBUG']
+        ENV['DEBUG'] = '1'
+        expect { described_class.geocodable?('lot 12 folio a123') }
+          .to output(/address: lot 12 folio a123 is not geocodable, missing state, postcode, suburb state/).to_stdout
+      ensure
+        ENV['DEBUG'] = prev_debug
+      end
+
       it 'returns false for address missing state' do
         expect(described_class.geocodable?('123 Smith Street, Sydney 2000')).to be false
       end

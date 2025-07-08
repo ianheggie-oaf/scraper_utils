@@ -5,6 +5,22 @@ require "scraperwiki"
 module ScraperUtils
   # Utilities for database operations in scrapers
   module DbUtils
+    # Enable in-memory collection mode instead of saving to SQLite
+    def self.collect_saves!
+      @collected_saves = []
+    end
+
+    # Save to disk rather than collect
+    def self.save_immediately!
+      @collected_saves = nil
+    end
+
+    # Get all collected save calls
+    # @return [Array<Array>] Array of [primary_key, record] pairs
+    def self.collected_saves
+      @collected_saves
+    end
+
     # Saves a record to the SQLite database with validation and logging
     #
     # @param record [Hash] The record to be saved
@@ -33,8 +49,12 @@ module ScraperUtils
                     else
                       ["council_reference"]
                     end
-      ScraperWiki.save_sqlite(primary_key, record)
-      ScraperUtils::DataQualityMonitor.log_saved_record(record)
+      if @collected_saves
+        @collected_saves << record
+      else
+        ScraperWiki.save_sqlite(primary_key, record)
+        ScraperUtils::DataQualityMonitor.log_saved_record(record)
+      end
     end
   end
 end
