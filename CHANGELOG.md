@@ -4,6 +4,7 @@
 
 * Refactored example code into simple callable methods
 * Expand test for geocodeable addresses to include comma between postcode and state at the end of the address.
+
 ### Added
 - `ScraperUtils::SpecSupport.validate_addresses_are_geocodable!` - validates percentage of geocodable addresses
 - `ScraperUtils::SpecSupport.validate_descriptions_are_reasonable!` - validates percentage of reasonable descriptions
@@ -18,6 +19,10 @@
 
 ### Updated
 - Code example in `docs/enhancing_specs.md` to reflect new support methods
+
+### Removed
+- Unused RandomizeUtils
+- Unused DateRangeUtils
 
 ## 0.8.2 - 2025-05-07
 
