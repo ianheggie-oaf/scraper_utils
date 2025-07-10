@@ -46,16 +46,14 @@ class Scraper
 
   # Process authorities in parallel
   def self.scrape_parallel(authorities, attempt, process_count: 4)
-    results = Parallel.map(authorities, in_processes: process_count) do |authority_label|
-      scrape_authority(authority_label, attempt)
-    end
-    # Enable saving to file and avoids conflicts
-    ScraperUtils::DbUtils.save_immediately!
-
-
-    # Process results in main process
     exceptions = {}
-    results.each do |authority_label, saves, unprocessable, fatal_exception|
+    # Saves immediately in main process
+    ScraperUtils::DbUtils.save_immediately!
+    Parallel.map(authorities, in_processes: process_count) do |authority_label|
+      # Runs in sub process
+      scrape_authority(authority_label, attempt)
+    end.each do |authority_label, saves, unprocessable, fatal_exception|
+      # Runs in main process
       status = fatal_exception ? 'FAILED' : 'OK'
       puts "Saving results of #{authority_label}: #{saves.size} records, #{unprocessable.size} unprocessable #{status}"
 
