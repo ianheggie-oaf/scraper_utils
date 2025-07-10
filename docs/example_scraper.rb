@@ -59,6 +59,7 @@ class Scraper
       puts "Now retrying authorities which earlier had failures"
       puts exceptions.keys.join(", ").to_s
       puts "***************************************************"
+      ENV['DEBUG'] ||= '1'
 
       start_time = Time.now
       exceptions = scrape(exceptions.keys, 2)
