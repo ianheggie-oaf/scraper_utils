@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.9.0 - 2025-07-01
+## 0.9.1 - 2025-07-11
+
+* Revert VCR to using `<authority>_info_urls.yml` for VCR cassette cache of `info_urls` check
+
+## 0.9.0 - 2025-07-11
 
 **Significant cleanup - removed code we ended up not using as none of the councils are actually concerned about server load**
 

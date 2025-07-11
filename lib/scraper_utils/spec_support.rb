@@ -193,7 +193,7 @@ module ScraperUtils
       puts "Checking the one expected info_url returns 200: #{expected_url}"
 
       if defined?(VCR)
-        VCR.use_cassette("#{authority_label(results, suffix: '_')}one_info_url") do
+        VCR.use_cassette("#{authority_label(results, suffix: '_')}info_url") do
           page = block_given? ? block.call(expected_url) : fetch_url_with_redirects(expected_url)
           validate_page_response(page, bot_check_expected)
         end
@@ -212,7 +212,7 @@ module ScraperUtils
     # @raise RuntimeError if insufficient detail checks pass
     def self.validate_info_urls_have_expected_details!(results, percentage: 75, variation: 3, bot_check_expected: false, &block)
       if defined?(VCR)
-        VCR.use_cassette("#{authority_label(results, suffix: '_')}info_url_details") do
+        VCR.use_cassette("#{authority_label(results, suffix: '_')}info_urls") do
           check_info_url_details(results, percentage, variation, bot_check_expected, &block)
         end
       else
