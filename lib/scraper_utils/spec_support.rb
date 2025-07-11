@@ -7,34 +7,60 @@ module ScraperUtils
   # Methods to support specs
   module SpecSupport
     AUSTRALIAN_STATES = %w[ACT NSW NT QLD SA TAS VIC WA].freeze
+
     STREET_TYPE_PATTERNS = [
+      /\bArcade\b/i,
       /\bAv(e(nue)?)?\b/i,
-      /\bB(oulevard|lvd)\b/i,
+      /\bB(oulevard|lvd|vd)\b/i,
       /\b(Circuit|Cct)\b/i,
+      /\bCir(cle)?\b/i,
       /\bCl(ose)?\b/i,
       /\bC(our|r)?t\b/i,
-      /\bCircle\b/i,
       /\bChase\b/i,
+      /\bCorso\b/i,
       /\bCr(es(cent)?)?\b/i,
+      /\bCross\b/i,
       /\bDr((ive)?|v)\b/i,
       /\bEnt(rance)?\b/i,
+      /\bEsp(lanade)?\b/i,
       /\bGr(ove)?\b/i,
       /\bH(ighwa|w)y\b/i,
-      /\bLane\b/i,
+      /\bL(ane?|a)\b/i,
       /\bLoop\b/i,
+      /\bM(ews|w)\b/i,
+      /\bP(arade|de)\b/i,
       /\bParkway\b/i,
       /\bPl(ace)?\b/i,
       /\bPriv(ate)?\b/i,
-      /\bParade\b/i,
+      /\bProm(enade)?\b/i,
+      /\bQuay\b/i,
       /\bR(oa)?d\b/i,
+      /\bR(idge|dg)\b/i,
       /\bRise\b/i,
+      /\bSq(uare)?\b/i,
       /\bSt(reet)?\b/i,
-      /\bSquare\b/i,
-      /\bTerrace\b/i,
-      /\bWay\b/i
+      /\bT(erra)?ce\b/i,
+      /\bWa?y\b/i
     ].freeze
 
     AUSTRALIAN_POSTCODES = /\b\d{4}\b/.freeze
+
+    PLANNING_KEYWORDS = [
+      # Building types
+      'dwelling', 'house', 'unit', 'building', 'structure', 'facility',
+      # Modifications
+      'addition', 'extension', 'renovation', 'alteration', 'modification',
+      'replacement', 'upgrade', 'improvement',
+      # Specific structures
+      'carport', 'garage', 'shed', 'pool', 'deck', 'patio', 'pergola',
+      'verandah', 'balcony', 'fence', 'wall', 'driveway',
+      # Development types
+      'subdivision', 'demolition', 'construction', 'development',
+      # Services/utilities
+      'signage', 'telecommunications', 'stormwater', 'water', 'sewer',
+      # Approvals/certificates
+      'certificate', 'approval', 'consent', 'permit'
+    ].freeze
 
     def self.fetch_url_with_redirects(url)
       agent = Mechanize.new
@@ -45,7 +71,7 @@ module ScraperUtils
     def self.authority_label(results, prefix: '', suffix: '')
       return nil if results.nil?
 
-      authority_labels = results.map { |record| record['authority_label']}.compact.uniq
+      authority_labels = results.map { |record| record['authority_label'] }.compact.uniq
       return nil if authority_labels.empty?
 
       raise "Expected one authority_label, not #{authority_labels.inspect}" if authority_labels.size > 1
@@ -86,22 +112,18 @@ module ScraperUtils
       # Using the pre-compiled patterns
       has_street_type = STREET_TYPE_PATTERNS.any? { |pattern| check_address.match?(pattern) }
 
-      has_unit_or_lot = address.match?(/\b(Unit|Lot:?)\s+\d+/i)
-
       uppercase_words = address.scan(/\b[A-Z]{2,}\b/)
       has_uppercase_suburb = uppercase_words.any? { |word| !AUSTRALIAN_STATES.include?(word) }
 
       if ENV["DEBUG"]
         missing = []
-        unless has_street_type || has_unit_or_lot
-          missing << "street type / unit / lot"
-        end
+        missing << "street type" unless has_street_type
         missing << "postcode/Uppercase suburb" unless has_postcode || has_uppercase_suburb
         missing << "state" unless has_state
         puts "  address: #{address} is not geocodable, missing #{missing.join(', ')}" if missing.any?
       end
 
-      (has_street_type || has_unit_or_lot) && (has_postcode || has_uppercase_suburb) && has_state
+      has_street_type && (has_postcode || has_uppercase_suburb) && has_state
     end
 
     PLACEHOLDERS = [
@@ -142,14 +164,23 @@ module ScraperUtils
     # Check if this looks like a "reasonable" description
     # This is a bit stricter than needed - typically assert >= 75% match
     def self.reasonable_description?(text)
-      !placeholder?(text) && text.to_s.split.size >= 3
+      return false if placeholder?(text)
+
+      # Long descriptions (3+ words) are assumed reasonable
+      return true if text.to_s.split.size >= 3
+
+      # Short descriptions must contain at least one planning keyword
+      text_lower = text.to_s.downcase
+      PLANNING_KEYWORDS.any? { |keyword| text_lower.include?(keyword) }
     end
 
     # Validates that all records use the expected global info_url and it returns 200
     # @param results [Array<Hash>] The results from scraping an authority
     # @param expected_url [String] The expected global info_url for this authority
+    # @param bot_check_expected [Boolean] Whether bot protection is acceptable
+    # @yield [String] Optional block to customize URL fetching (e.g., handle terms agreement)
     # @raise RuntimeError if records don't use the expected URL or it doesn't return 200
-    def self.validate_uses_one_valid_info_url!(results, expected_url, bot_check_expected: false)
+    def self.validate_uses_one_valid_info_url!(results, expected_url, bot_check_expected: false, &block)
       info_urls = results.map { |record| record["info_url"] }.uniq
 
       unless info_urls.size == 1
@@ -163,11 +194,11 @@ module ScraperUtils
 
       if defined?(VCR)
         VCR.use_cassette("#{authority_label(results, suffix: '_')}one_info_url") do
-          page = fetch_url_with_redirects(expected_url)
+          page = block_given? ? block.call(expected_url) : fetch_url_with_redirects(expected_url)
           validate_page_response(page, bot_check_expected)
         end
       else
-        page = fetch_url_with_redirects(expected_url)
+        page = block_given? ? block.call(expected_url) : fetch_url_with_redirects(expected_url)
         validate_page_response(page, bot_check_expected)
       end
     end
@@ -176,14 +207,16 @@ module ScraperUtils
     # @param results [Array<Hash>] The results from scraping an authority
     # @param percentage [Integer] The min percentage of detail checks expected to pass (default:75)
     # @param variation [Integer] The variation allowed in addition to percentage (default:3)
+    # @param bot_check_expected [Boolean] Whether bot protection is acceptable
+    # @yield [String] Optional block to customize URL fetching (e.g., handle terms agreement)
     # @raise RuntimeError if insufficient detail checks pass
-    def self.validate_info_urls_have_expected_details!(results, percentage: 75, variation: 3, bot_check_expected: false)
+    def self.validate_info_urls_have_expected_details!(results, percentage: 75, variation: 3, bot_check_expected: false, &block)
       if defined?(VCR)
         VCR.use_cassette("#{authority_label(results, suffix: '_')}info_url_details") do
-          check_info_url_details(results, percentage, variation, bot_check_expected)
+          check_info_url_details(results, percentage, variation, bot_check_expected, &block)
         end
       else
-        check_info_url_details(results, percentage, variation, bot_check_expected)
+        check_info_url_details(results, percentage, variation, bot_check_expected, &block)
       end
     end
 
@@ -195,7 +228,7 @@ module ScraperUtils
 
       return false unless page.body
 
-      body_lower = page.body.downcase
+      body_lower = page.body&.downcase
 
       # Check for common bot protection indicators
       bot_indicators = [
@@ -228,7 +261,7 @@ module ScraperUtils
 
     private
 
-    def self.check_info_url_details(results, percentage, variation, bot_check_expected)
+    def self.check_info_url_details(results, percentage, variation, bot_check_expected, &block)
       count = 0
       failed = 0
       fib_indices = ScraperUtils::MathsUtils.fibonacci_series(results.size - 1).uniq
@@ -238,7 +271,7 @@ module ScraperUtils
         info_url = record["info_url"]
         puts "Checking info_url[#{index}]: #{info_url} has the expected reference, address and description..."
 
-        page = fetch_url_with_redirects(info_url)
+        page = block_given? ? block.call(info_url) : fetch_url_with_redirects(info_url)
 
         if bot_check_expected && bot_protection_detected?(page)
           puts "  Bot protection detected - skipping detailed validation"
@@ -252,22 +285,37 @@ module ScraperUtils
         %w[council_reference address description].each do |attribute|
           count += 1
           expected = CGI.escapeHTML(record[attribute]).gsub(/\s\s+/, " ")
-          expected2 = expected.gsub(/(\S+)\s+(\S+)\z/, '\2 \1') # Handle Lismore post-code/state swap
-
-          next if page_body.include?(expected) || page_body.include?(expected2)
+          expected2 = case attribute
+                      when 'council_reference'
+                        expected.sub(/\ADA\s*-\s*/, '')
+                      when 'address'
+                        expected.sub(/(\S+)\s+(\S+)\z/, '\2 \1').sub(/,\s*\z/, '') # Handle Lismore post-code/state swap
+                      else
+                        expected
+                      end
+          expected3 = case attribute
+                      when 'address'
+                        expected.sub(/\s*,?\s+(VIC|NSW|QLD|SA|TAS|WA|ACT|NT)\z/, '')
+                      else
+                        expected
+                      end.gsub(/\s*,\s*/, ' ').gsub(/\s*-\s*/, '-')
+          next if page_body.include?(expected) || page_body.include?(expected2) || page_body.gsub(/\s*,\s*/, ' ').gsub(/\s*-\s*/, '-').include?(expected3)
 
           failed += 1
-          puts "  Missing: #{expected}"
+          desc2 = expected2 == expected ? '' : " or #{expected2.inspect}"
+          desc3 = expected3 == expected ? '' : " or #{expected3.inspect}"
+          puts "  Missing: #{expected.inspect}#{desc2}#{desc3}"
           puts "    IN: #{page_body}" if ENV['DEBUG']
 
-          min_required = [((percentage.to_f / 100.0) * count - variation), 1].max
+          min_required = ((percentage.to_f / 100.0) * count - variation).round(0)
           passed = count - failed
           raise "Too many failures: #{passed}/#{count} passed (min required: #{min_required})" if passed < min_required
-        end
-      end
+          end
+          end
 
-      puts "#{(100.0 * (count - failed) / count).round(1)}% detail checks passed (#{failed}/#{count} failed)!" if count > 0
-    end
+          puts "#{(100.0 * (count - failed) / count).round(1)}% detail checks passed (#{failed}/#{count} failed)!" if count > 0
+          end
 
-  end
-end
+          end
+          end
+

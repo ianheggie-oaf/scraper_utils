@@ -20,7 +20,9 @@
 - Code example in `docs/enhancing_specs.md`
 
 ### Updated
+- `ScraperUtils::SpecSupport.acceptable_description?` - Accept 1 or 2 word descriptors with planning specific terms
 - Code example in `docs/enhancing_specs.md` to reflect new support methods
+- Code examples 
 - geocodeable? test is simpler - it requires 
   - a street type, unit or lot, 
   - an uppercase word (assumed to be a suburb) or postcode and 
