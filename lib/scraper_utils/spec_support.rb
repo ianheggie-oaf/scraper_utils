@@ -36,6 +36,23 @@ module ScraperUtils
 
     AUSTRALIAN_POSTCODES = /\b\d{4}\b/.freeze
 
+    PLANNING_KEYWORDS = [
+      # Building types
+      'dwelling', 'house', 'unit', 'building', 'structure', 'facility',
+      # Modifications  
+      'addition', 'extension', 'renovation', 'alteration', 'modification',
+      'replacement', 'upgrade', 'improvement',
+      # Specific structures
+      'carport', 'garage', 'shed', 'pool', 'deck', 'patio', 'pergola',
+      'verandah', 'balcony', 'fence', 'wall', 'driveway',
+      # Development types
+      'subdivision', 'demolition', 'construction', 'development',
+      # Services/utilities
+      'signage', 'telecommunications', 'stormwater', 'water', 'sewer',
+      # Approvals/certificates
+      'certificate', 'approval', 'consent', 'permit'
+    ].freeze
+
     def self.fetch_url_with_redirects(url)
       agent = Mechanize.new
       # FIXME - Allow injection of a check to agree to terms if needed to set a cookie and reget the url
@@ -142,7 +159,14 @@ module ScraperUtils
     # Check if this looks like a "reasonable" description
     # This is a bit stricter than needed - typically assert >= 75% match
     def self.reasonable_description?(text)
-      !placeholder?(text) && text.to_s.split.size >= 3
+      return false if placeholder?(text)
+
+      # Long descriptions (3+ words) are assumed reasonable
+      return true if text.to_s.split.size >= 3
+
+      # Short descriptions must contain at least one planning keyword
+      text_lower = text.to_s.downcase
+      PLANNING_KEYWORDS.any? { |keyword| text_lower.include?(keyword) }
     end
 
     # Validates that all records use the expected global info_url and it returns 200
