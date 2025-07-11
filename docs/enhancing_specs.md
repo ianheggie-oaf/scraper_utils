@@ -25,6 +25,17 @@ RSpec.describe Scraper do
   ].freeze
 
   describe ".scrape" do
+def fetch_url_with_redirects(url)
+      agent = Mechanize.new
+      page = agent.get(url)
+      if YourScraper::Pages::TermsAndConditions.on_page?(page)
+        puts "Agreeing to terms and conditions for #{url}"
+        YourScraper::Pages::TermsAndConditions.click_agree(page)
+        page = agent.get(url)
+      end
+      page
+    end
+
     def test_scrape(authority)
       ScraperWiki.close_sqlite
       FileUtils.rm_f("data.sqlite")
@@ -56,22 +67,25 @@ RSpec.describe Scraper do
       expect(results).to eq expected
 
       if results.any?
-        # Validate addresses are geocodable (70% minimum with 3 records variation)
         ScraperUtils::SpecSupport.validate_addresses_are_geocodable!(results, percentage: 70, variation: 3)
 
-        # Validate descriptions are reasonable (55% minimum with 3 records variation)
         ScraperUtils::SpecSupport.validate_descriptions_are_reasonable!(results, percentage: 55, variation: 3)
 
-        # Validate info_urls based on authority configuration
         global_info_url = Scraper::AUTHORITIES[authority][:info_url]
         # OR 
         # global_info_url = results.first['info_url'] 
         bot_check_expected = AUTHORITIES_WITH_BOT_PROTECTION.include?(authority)
 
-        if global_info_url
-          ScraperUtils::SpecSupport.validate_uses_one_valid_info_url!(results, global_info_url, bot_check_expected: bot_check_expected)
-        else
-          ScraperUtils::SpecSupport.validate_info_urls_have_expected_details!(results, percentage: 75, variation: 3, bot_check_expected: bot_check_expected)
+        unless ENV['DISABLE_INFO_URL_CHECK']
+          if global_info_url
+            ScraperUtils::SpecSupport.validate_uses_one_valid_info_url!(results, global_info_url, bot_check_expected: bot_check_expected) do |url|
+              fetch_url_with_redirects(url)
+            end
+          else
+            ScraperUtils::SpecSupport.validate_info_urls_have_expected_details!(results, percentage: 70, variation: 3, bot_check_expected: bot_check_expected) do |url|
+              fetch_url_with_redirects(url)
+            end
+          end
         end
       end
     end
@@ -123,6 +137,21 @@ ScraperUtils::SpecSupport.validate_info_urls_have_expected_details!(results, per
 ScraperUtils::SpecSupport.validate_info_urls_have_expected_details!(results, percentage: 75, variation: 3, bot_check_expected: true)
 ```
 
+### Custom URL fetching
+
+For sites requiring special handling (terms agreement, cookies, etc.):
+
+```ruby
+# Custom URL fetching with block
+ScraperUtils::SpecSupport.validate_uses_one_valid_info_url!(results, url) do |url|
+  fetch_url_with_redirects(url)  # Your custom fetch implementation
+end
+
+ScraperUtils::SpecSupport.validate_info_urls_have_expected_details!(results) do |url|
+  fetch_url_with_redirects(url)  # Handle terms agreement, cookies, etc.
+end
+```
+
 ## Bot Protection Handling
 
 The `bot_check_expected` parameter allows validation methods to accept bot protection as valid responses:
@@ -141,3 +170,4 @@ The `bot_check_expected` parameter allows validation methods to accept bot prote
 
 All validation methods accept `percentage` (minimum percentage required) and `variation` (additional tolerance)
 parameters for consistent configuration.
+
