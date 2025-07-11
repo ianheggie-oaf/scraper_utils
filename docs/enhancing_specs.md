@@ -55,20 +55,24 @@ RSpec.describe Scraper do
 
       expect(results).to eq expected
 
-      # Validate addresses are geocodable (70% minimum with 3 records variation)
-      ScraperUtils::SpecSupport.validate_addresses_are_geocodable!(results, percentage: 70, variation: 3)
+      if results.any?
+        # Validate addresses are geocodable (70% minimum with 3 records variation)
+        ScraperUtils::SpecSupport.validate_addresses_are_geocodable!(results, percentage: 70, variation: 3)
 
-      # Validate descriptions are reasonable (55% minimum with 3 records variation)
-      ScraperUtils::SpecSupport.validate_descriptions_are_reasonable!(results, percentage: 55, variation: 3)
+        # Validate descriptions are reasonable (55% minimum with 3 records variation)
+        ScraperUtils::SpecSupport.validate_descriptions_are_reasonable!(results, percentage: 55, variation: 3)
 
-      # Validate info_urls based on authority configuration
-      global_info_url = Scraper::AUTHORITIES[authority][:info_url]
-      bot_check_expected = AUTHORITIES_WITH_BOT_PROTECTION.include?(authority)
+        # Validate info_urls based on authority configuration
+        global_info_url = Scraper::AUTHORITIES[authority][:info_url]
+        # OR 
+        # global_info_url = results.first['info_url'] 
+        bot_check_expected = AUTHORITIES_WITH_BOT_PROTECTION.include?(authority)
 
-      if global_info_url
-        ScraperUtils::SpecSupport.validate_uses_one_valid_info_url!(results, global_info_url, bot_check_expected: bot_check_expected)
-      else
-        ScraperUtils::SpecSupport.validate_info_urls_have_expected_details!(results, percentage: 75, variation: 3, bot_check_expected: bot_check_expected)
+        if global_info_url
+          ScraperUtils::SpecSupport.validate_uses_one_valid_info_url!(results, global_info_url, bot_check_expected: bot_check_expected)
+        else
+          ScraperUtils::SpecSupport.validate_info_urls_have_expected_details!(results, percentage: 75, variation: 3, bot_check_expected: bot_check_expected)
+        end
       end
     end
 
