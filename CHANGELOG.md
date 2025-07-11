@@ -14,19 +14,26 @@
 - `ScraperUtils::SpecSupport.validate_info_urls_have_expected_details!` - validates info_urls contain expected content
 - `ScraperUtils::MathsUtils.fibonacci_series` - generates fibonacci sequence up to max value
 - `bot_check_expected` parameter to info_url validation methods for handling reCAPTCHA/Cloudflare protection
+- Experimental Parallel Processing support
+  - Uses the parallel gem with subprocesses
+  - Added facility to collect records in memory
+  - see docs/parallel_scrapers.md and docs/example_parallel_scraper.rb
+- .editorconfig as an example for scrapers
 
 ### Fixed
-- Typo in `geocodable?` method debug output (`has_suburb_stats` → `has_suburb_states`) 
+- Typo in `geocodable?` method debug output (`has_suburb_stats` → `has_suburb_states`)
 - Code example in `docs/enhancing_specs.md`
 
 ### Updated
 - `ScraperUtils::SpecSupport.acceptable_description?` - Accept 1 or 2 word descriptors with planning specific terms
 - Code example in `docs/enhancing_specs.md` to reflect new support methods
-- Code examples 
-- geocodeable? test is simpler - it requires 
-  - a street type, unit or lot, 
-  - an uppercase word (assumed to be a suburb) or postcode and 
+- Code examples
+- geocodeable? test is simpler - it requires
+  - a street type
+  - an uppercase word (assumed to be a suburb) or postcode and
   - a state
+- Support for 1 or 2 word "reasonable" descriptions that use words specific to planning alerts
+- Added extra street types
 
 ### Removed
 - Unsued CycleUtils
@@ -34,7 +41,7 @@
 - Unused RandomizeUtils
 - Unused Scheduling (Fiber and Threads)
 - Unused Compliant mode, delays for Agent (Agent is configured with an agent string)
-- Unused MechanizeActions 
+- Unused MechanizeActions
 
 ## 0.8.2 - 2025-05-07
 
