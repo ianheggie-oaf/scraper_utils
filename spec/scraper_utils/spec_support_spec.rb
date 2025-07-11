@@ -87,7 +87,7 @@ RSpec.describe ScraperUtils::SpecSupport do
         prev_debug = ENV['DEBUG']
         ENV['DEBUG'] = '1'
         expect { described_class.geocodable?('lot 12 folio a123') }
-          .to output(/address: lot 12 folio a123 is not geocodable, missing state, postcode, suburb state/).to_stdout
+          .to output(/address: lot 12 folio a123 is not geocodable, missing street type, postcode\/Uppercase suburb, state/).to_stdout
       ensure
         ENV['DEBUG'] = prev_debug
       end
