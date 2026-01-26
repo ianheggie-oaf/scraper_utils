@@ -92,7 +92,7 @@ RSpec.describe ScraperUtils::DebugUtils do
           headers: {'Content-Type' => 'text/html'}
         )
     end
-    
+
     let(:agent) { Mechanize.new }
     let(:page) { agent.get("https://example.com/test") }
     let(:message) { "Test debug page" }
@@ -103,14 +103,14 @@ RSpec.describe ScraperUtils::DebugUtils do
       it "prints page details" do
         expect do
           described_class.debug_page(page, message)
-        end.to output(/DEBUG: Test debug page/).to_stdout
+        end.to output(/DEBUG PAGE: Test debug page/).to_stdout
       end
 
       it "prints page title and URI" do
         expect do
           described_class.debug_page(page, message)
         end.to output(/Current URL: https:\/\/example.com\/test/).to_stdout
-        
+
         expect do
           described_class.debug_page(page, message)
         end.to output(/Page title: Test Page/).to_stdout
@@ -124,17 +124,17 @@ RSpec.describe ScraperUtils::DebugUtils do
             body: "<html><body>No Title Content</body></html>",
             headers: {'Content-Type' => 'text/html'}
           )
-        
+
         allow(described_class).to receive(:trace?).and_return(true)
       end
-      
+
       let(:no_title_page) { agent.get("https://example.com/no-title") }
 
       it "handles missing title gracefully" do
         expect do
           described_class.debug_page(no_title_page, message)
         end.to output(/Current URL: https:\/\/example.com\/no-title/).to_stdout
-        
+
         # Should not output page title section
         expect do
           described_class.debug_page(no_title_page, message)
@@ -161,7 +161,7 @@ RSpec.describe ScraperUtils::DebugUtils do
           headers: {'Content-Type' => 'text/html'}
         )
     end
-    
+
     let(:agent) { Mechanize.new }
     let(:page) { agent.get("https://example.com/elements") }
     let(:selector) { "div.test" }
@@ -173,12 +173,12 @@ RSpec.describe ScraperUtils::DebugUtils do
       it "prints selector details when element found" do
         expect do
           described_class.debug_selector(page, selector, message)
-        end.to output(/DEBUG: Test selector/).to_stdout
-        
+        end.to output(/DEBUG SELECTION: Test selector/).to_stdout
+
         expect do
           described_class.debug_selector(page, selector, message)
         end.to output(/Looking for selector: div.test/).to_stdout
-        
+
         expect do
           described_class.debug_selector(page, selector, message)
         end.to output(/Found element:/).to_stdout

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.2 - 2026-01-27
+
+* Removed Emoticons as they are four byte UTF-8 and some databases are configured to only store 3 byte UTF-8
+
 ## 0.9.1 - 2025-07-11
 
 * Revert VCR to using `<authority>_info_urls.yml` for VCR cassette cache of `info_urls` check
