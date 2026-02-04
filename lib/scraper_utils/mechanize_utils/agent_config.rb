@@ -19,10 +19,11 @@ module ScraperUtils
     # @example Overriding specific settings
     #   config = ScraperUtils::MechanizeUtils::AgentConfig.new(
     #     timeout: 120,
-    #     random_delay: 10
     #   )
     class AgentConfig
       DEFAULT_TIMEOUT = 60
+      DEFAULT_CRAWL_DELAY = 0.5
+      DEFAULT_MAX_LOAD = 50.0
 
       # Class-level defaults that can be modified
       class << self
@@ -37,6 +38,13 @@ module ScraperUtils
 
         # @return [String, nil] Default Mechanize user agent
         attr_accessor :default_user_agent
+
+        # @return [Float, nil] Default Crawl delay between requests in seconds
+        attr_accessor :default_crawl_delay
+
+        # @return [Float, nil] Default Max load presented to an external server as a percentage
+        # 50 will result in a pause the same length as the response (ie 50% of total time will be the response, 50% pausing)
+        attr_accessor :default_max_load
 
         # Configure default settings for all AgentConfig instances
         # @yield [self] Yields self for configuration
@@ -56,6 +64,8 @@ module ScraperUtils
           @default_disable_ssl_certificate_check = !ENV.fetch('MORPH_DISABLE_SSL_CHECK', nil).to_s.empty? # false
           @default_australian_proxy = !ENV.fetch('MORPH_USE_PROXY', nil).to_s.empty? # false
           @default_user_agent = ENV.fetch('MORPH_USER_AGENT', nil) # Uses Mechanize user agent
+          @default_crawl_delay = ENV.fetch('MORPH_CLIENT_CRAWL_DELAY', DEFAULT_CRAWL_DELAY)
+          @default_max_load = ENV.fetch('MORPH_MAX_LOAD', DEFAULT_MAX_LOAD)
         end
       end
 
@@ -67,7 +77,7 @@ module ScraperUtils
 
       # Give access for testing
 
-      attr_reader :max_load, :random_range
+      attr_reader :max_load, :crawl_delay
 
       # Creates Mechanize agent configuration with sensible defaults overridable via configure
       # @param timeout [Integer, nil] Timeout for agent connections (default: 60)
@@ -76,8 +86,8 @@ module ScraperUtils
       # @param user_agent [String, nil] Configure Mechanize user agent
       def initialize(timeout: nil,
                      compliant_mode: nil,
-                     random_delay: nil,
                      max_load: nil,
+                     crawl_delay: nil,
                      disable_ssl_certificate_check: nil,
                      australian_proxy: nil,
                      user_agent: nil)
@@ -94,6 +104,9 @@ module ScraperUtils
                             else
                               australian_proxy
                             end
+        @crawl_delay = crawl_delay.nil? ? self.class.default_crawl_delay : crawl_delay.to_f
+        # Clamp between 10 (delay 9 x response) and 100 (no delay)
+        @max_load = (max_load.nil? ? self.class.default_max_load : max_load).to_f.clamp(10.0, 100.0)
 
         # Validate proxy URL format if proxy will be used
         @australian_proxy &&= !ScraperUtils.australian_proxy.to_s.empty?
@@ -109,11 +122,6 @@ module ScraperUtils
           unless !uri.host.to_s.empty? && uri.port&.positive?
             raise URI::InvalidURIError, "Proxy URL must include host and port"
           end
-        end
-
-        if @random_delay&.positive?
-          min_random = Math.sqrt(@random_delay * 3.0 / 13.0)
-          @random_range = min_random.round(3)..(3 * min_random).round(3)
         end
 
         today = Date.today.strftime("%Y-%m-%d")
@@ -179,12 +187,23 @@ module ScraperUtils
         raise ArgumentError, "URI must be present in post-connect hook" unless uri
 
         response_time = Time.now - @connection_started_at
+
+        response_delay = @crawl_delay || 0.0
+        if @crawl_delay ||@max_load
+          response_delay += response_time
+          if @max_load && @max_load >= 1
+            response_delay += (100.0 - @max_load) * response_time / @max_load
+          end
+          response_delay = response_delay.round(3)
+        end
+
         if DebugUtils.basic?
           ScraperUtils::LogUtils.log(
             "Post Connect uri: #{uri.inspect}, response: #{response.inspect} " \
-              "after #{response_time} seconds"
+              "after #{response_time} seconds#{response_delay > 0.0 ? ", pausing for #{response_delay} seconds" : ""}"
           )
         end
+        sleep(response_delay) if response_delay > 0.0
         response
       end
 
