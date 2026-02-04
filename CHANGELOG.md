@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.1 - 2026-01-27
+
+* Added  `ScraperUtils::DbUtils.cleanup_old_records` to Clean up records older than 30 days and approx once a month
+  vacuum the DB
+* Pauses the request time plus 0.5 seconds
+* Removed reference to random delay – it's either not required or it's not enough to make a difference
+
 ## 0.9.2 - 2026-01-27
 
 * Removed Emoticons as they are four byte UTF-8 and some databases are configured to only store 3 byte UTF-8

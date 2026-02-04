@@ -16,9 +16,17 @@ agent = ScraperUtils::MechanizeUtils.mechanize_agent(**options)
 
 Add `client_options` to your AUTHORITIES configuration and move any of the following settings into it:
 
-* `timeout: Integer` - Timeout for agent connections in case the server is slower than normal
+#### Connection Settings
+
+* `timeout: Integer` - Timeout for agent connections in case the server is slower than normal (default: 60 seconds)
 * `australian_proxy: true` - Use the proxy url in the `MORPH_AUSTRALIAN_PROXY` env variable if the site is geo-locked
 * `disable_ssl_certificate_check: true` - Disabled SSL verification for old / incorrect certificates
+
+#### Delay Settings (Respectful Scraping)
+
+* `crawl_delay: Float` - Minimum delay between requests in seconds (default: 0.5)
+* `max_load: Float` - Maximum server load as a percentage. E.g., `50` pauses as long as the response took, making total
+  time 50% response + 50% pause (default: 50.0)
 
 Then adjust your code to accept `client_options` and pass then through to:
 `ScraperUtils::MechanizeUtils.mechanize_agent(client_options || {})`
@@ -42,11 +50,13 @@ ScraperUtils::MechanizeUtils::AgentConfig.configure do |config|
 end
 ```
 
-For full details, see the [MechanizeUtils class documentation](https://rubydoc.info/gems/scraper_utils/ScraperUtils/MechanizeUtils).
+For full details, see
+the [MechanizeUtils class documentation](https://rubydoc.info/gems/scraper_utils/ScraperUtils/MechanizeUtils).
 
 ## MechanizeActions
 
-The `ScraperUtils::MechanizeActions` class provides a convenient way to execute a series of actions (like clicking links, filling forms) on a Mechanize page.
+The `ScraperUtils::MechanizeActions` class provides a convenient way to execute a series of actions (like clicking
+links, filling forms) on a Mechanize page.
 
 ### Action Format
 
@@ -86,4 +96,5 @@ actions = [
 ]
 ```
 
-For full details, see the [MechanizeActions class documentation](https://rubydoc.info/gems/scraper_utils/ScraperUtils/MechanizeActions).
+For full details, see
+the [MechanizeActions class documentation](https://rubydoc.info/gems/scraper_utils/ScraperUtils/MechanizeActions).

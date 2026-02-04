@@ -74,6 +74,7 @@ class Scraper
       )
     end
 
+    ScraperUtils::DbUtils.cleanup_old_records 
     # Report on results, raising errors for unexpected conditions
     ScraperUtils::LogUtils.report_on_results(authorities, exceptions)
   end

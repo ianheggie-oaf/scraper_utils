@@ -56,5 +56,29 @@ module ScraperUtils
         ScraperUtils::DataQualityMonitor.log_saved_record(record)
       end
     end
+
+    # Clean up records older than 30 days and approx once a month vacuum the DB
+    def self.cleanup_old_records
+      cutoff_date = (Date.today - 30).to_s
+      vacuum_cutoff_date = (Date.today - 35).to_s
+
+      stats = ScraperWiki.sqliteexecute(
+        "SELECT COUNT(*) as count, MIN(date_scraped) as oldest FROM data WHERE date_scraped < ?",
+        [cutoff_date]
+      ).first
+
+      deleted_count = stats["count"]
+      oldest_date = stats["oldest"]
+
+      return unless deleted_count.positive? || ENV["VACUUM"]
+
+      LogUtils.log "Deleting #{deleted_count} applications scraped between #{oldest_date} and #{cutoff_date}"
+      ScraperWiki.sqliteexecute("DELETE FROM data WHERE date_scraped < ?", [cutoff_date])
+
+      return unless rand < 0.03 || (oldest_date && oldest_date < vacuum_cutoff_date) || ENV["VACUUM"]
+
+      LogUtils.log "  Running VACUUM to reclaim space..."
+      ScraperWiki.sqliteexecute("VACUUM")
+    end
   end
 end

@@ -23,6 +23,8 @@ see {file:docs/getting_started.md Getting Started guide}
 
 - Configure Mechanize agents with sensible defaults
 - Supports extra actions required to get to results page
+- Plays nice with external servers by pausing (crawl_delay + response_time) between requests by default,
+  backing off when servers are slow
 - {file:docs/mechanize_utilities.md Learn more about Mechanize utilities}
 
 ### Parallel Processing

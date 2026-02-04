@@ -23,7 +23,6 @@ RSpec.describe ScraperUtils::MechanizeUtils do
     it "applies configured delays" do
       start_time = Time.now
       agent = described_class.mechanize_agent(
-        random_delay: 1,
         max_load: 20.0,
         compliant_mode: true
       )
