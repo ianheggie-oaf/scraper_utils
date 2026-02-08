@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.2 - 2026-02-09
+
+* Added `ScraperUtils::MiscUtils.throttle_block` as documented in `docs/misc_utilities.md` for use with HTTParty
+
 ## 0.10.1 - 2026-01-27
 
 * Added  `ScraperUtils::DbUtils.cleanup_old_records` to Clean up records older than 30 days and approx once a month
