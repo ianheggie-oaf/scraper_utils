@@ -3,6 +3,8 @@
 ## 0.10.2 - 2026-02-09
 
 * Added `ScraperUtils::MiscUtils.throttle_block` as documented in `docs/misc_utilities.md` for use with HTTParty
+* Added spec for cleanup_old_records
+* Fixed cleanup_old_records for multi scrapers if extra status tables where missing
 
 ## 0.10.1 - 2026-01-27
 

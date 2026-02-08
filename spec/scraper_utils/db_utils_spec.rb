@@ -219,15 +219,135 @@ RSpec.describe ScraperUtils::DbUtils do
     end
   end
 
+  describe ".cleanup_old_records" do
+    let(:db_file) { "data.sqlite" }
+
+    before do
+      clobber_db
+
+      # Create the database and table structure with current records
+      3.times do |age|
+        ScraperWiki.save_sqlite(["council_reference"], valid_record(age: age))
+      end
+    end
+
+    after do
+      clobber_db
+    end
+
+    context "when there are no old records" do
+      it "does not delete any records" do
+        expect { described_class.cleanup_old_records }.not_to(change do
+          ScraperWiki.sqliteexecute("SELECT COUNT(*) as count FROM data").first["count"]
+        end)
+      end
+
+      it "does not run VACUUM" do
+        allow(ScraperWiki).to receive(:sqliteexecute).and_call_original
+        described_class.cleanup_old_records
+        expect(ScraperWiki).not_to have_received(:sqliteexecute).with("VACUUM")
+      end
+    end
+
+    context "when there are old records" do
+      before do
+        # Add old records (older than 30 days)
+        2.times do |age|
+          ScraperWiki.save_sqlite(["council_reference"], valid_record(age: 31 + age))
+        end
+      end
+
+      it "deletes records older than 30 days" do
+        expect do
+          described_class.cleanup_old_records
+        end.to change {
+          ScraperWiki.sqliteexecute("SELECT COUNT(*) as count FROM data").first["count"]
+        }.from(5).to(3)
+      end
+
+      it "keeps recent records" do
+        described_class.cleanup_old_records
+        remaining = ScraperWiki.sqliteexecute("SELECT council_reference FROM data ORDER BY council_reference")
+        expect(remaining.map { |r| r["council_reference"] }).to eq(%w[DA100 DA101 DA102])
+      end
+
+      it "logs the deletion" do
+        allow(ScraperUtils::LogUtils).to receive(:log)
+        described_class.cleanup_old_records
+        expect(ScraperUtils::LogUtils).to have_received(:log).with(a_string_matching(/Deleting 2 applications/))
+      end
+    end
+
+    context "when VACUUM should run" do
+      before do
+        # Add very old records (older than 35 days)
+        ScraperWiki.save_sqlite(["council_reference"], valid_record(age: 40))
+      end
+
+      it "runs VACUUM when oldest record is older than 35 days" do
+        allow(ScraperUtils::LogUtils).to receive(:log)
+        allow(ScraperWiki).to receive(:sqliteexecute).and_call_original
+
+        described_class.cleanup_old_records
+
+        expect(ScraperWiki).to have_received(:sqliteexecute).with("VACUUM")
+        expect(ScraperUtils::LogUtils).to have_received(:log).with(a_string_matching(/Running VACUUM/))
+      end
+    end
+
+    context "when ENV['VACUUM'] is set" do
+      before do
+        ENV["VACUUM"] = "true"
+      end
+
+      after do
+        ENV.delete("VACUUM")
+      end
+
+      it "runs VACUUM even with no old records when ENV['VACUUM'] is set" do
+        allow(ScraperWiki).to receive(:sqliteexecute).and_call_original
+        described_class.cleanup_old_records
+        expect(ScraperWiki).to have_received(:sqliteexecute).with("VACUUM")
+      end
+    end
+
+    context "with edge case dates" do
+      it "does not delete records exactly 30 days old" do
+        ScraperWiki.save_sqlite(["council_reference"], valid_record(age: 30))
+
+        described_class.cleanup_old_records
+
+        result = ScraperWiki.sqliteexecute("SELECT COUNT(*) as count FROM data").first
+        expect(result["count"]).to eq(4)
+      end
+
+      it "deletes records 31 days old" do
+        ScraperWiki.save_sqlite(["council_reference"], valid_record(age: 31))
+
+        described_class.cleanup_old_records
+
+        result = ScraperWiki.sqliteexecute("SELECT COUNT(*) as count FROM data").first
+        expect(result["count"]).to eq(3)
+      end
+    end
+  end
+
   private
 
-  def valid_record
+  def clobber_db
+    return unless File.exist?(db_file)
+
+    ScraperWiki.close_sqlite
+    File.delete(db_file)
+  end
+
+  def valid_record(age: 0)
     {
-      "council_reference" => "DA123",
-      "address" => "123 Test St, Testville",
-      "description" => "Test development",
+      "council_reference" => "DA#{100 + age}",
+      "address" => "#{100 + age} Test St, Testville",
+      "description" => "Test development for #{age} days old application",
       "info_url" => "https://example.com",
-      "date_scraped" => Date.today.to_s
+      "date_scraped" => (Date.today - age).to_s
     }
   end
 end

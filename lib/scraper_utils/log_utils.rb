@@ -236,6 +236,8 @@ module ScraperUtils
           "DELETE FROM #{table} WHERE date(run_at) < date(?)",
           [cutoff]
         )
+      rescue SqliteMagic::NoSuchTable => e
+        ScraperUtils::LogUtils.log "Ignoring: #{e} whilst cleaning old records" if ScraperUtils::DebugUtils.trace?
       end
     end
 
