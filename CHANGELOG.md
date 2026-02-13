@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.1 - 2026-02-13
+
+* Output council_reference from log_saved_record as it helps me debug some web query issues
+
 ## 0.10.2 - 2026-02-09
 
 * Added `ScraperUtils::MiscUtils.throttle_block` as documented in `docs/misc_utilities.md` for use with HTTParty

@@ -57,7 +57,7 @@ module ScraperUtils
     def self.log_saved_record(record)
       authority_label = extract_authority(record)
       @stats[authority_label][:saved] += 1
-      ScraperUtils::LogUtils.log "Saving record #{authority_label} - #{record['address']}"
+      ScraperUtils::LogUtils.log "Saving record #{authority_label&.empty? ? '' : "for #{authority_label}: "}#{record['council_reference']} - #{record['address']}"
     end
   end
 end
