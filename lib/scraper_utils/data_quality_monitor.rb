@@ -26,8 +26,12 @@ module ScraperUtils
       authority_label
     end
 
+    # Threshold for unprocessable records
+    # Initial base of 5.01 (override using MORPH_UNPROCESSABLE_BASE)
+    # Initial percentage of 10% (override using MORPH_UNPROCESSABLE_PERCENTAGE)
     def self.threshold(authority_label)
-      5.01 + (@stats[authority_label][:saved] * 0.1) if @stats&.fetch(authority_label, nil)
+      ENV.fetch('MORPH_UNPROCESSABLE_BASE', 5.01).to_f +
+        (@stats[authority_label][:saved].to_i * ENV.fetch('MORPH_UNPROCESSABLE_PERCENTAGE', 10.0).to_f / 100.0) if @stats&.fetch(authority_label, nil)
     end
 
     # Logs an unprocessable record and raises an exception if error threshold is exceeded
@@ -40,9 +44,12 @@ module ScraperUtils
     def self.log_unprocessable_record(exception, record)
       authority_label = extract_authority(record)
       @stats[authority_label][:unprocessed] += 1
-      ScraperUtils::LogUtils.log "Erroneous record #{authority_label} - #{record&.fetch(
-        'address', nil
-      ) || record.inspect}: #{exception}"
+      details = if record&.key?('council_reference') && record&.key?('address')
+                  "#{record['council_reference']} - #{record['address']}"
+                else
+                  record.inspect
+                end
+      ScraperUtils::LogUtils.log "Erroneous record #{details}: #{exception}"
       return unless @stats[authority_label][:unprocessed] > threshold(authority_label)
 
       raise ScraperUtils::UnprocessableSite,

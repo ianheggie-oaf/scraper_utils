@@ -74,7 +74,7 @@ class Scraper
       )
     end
 
-    ScraperUtils::DbUtils.cleanup_old_records 
+    ScraperUtils::DbUtils.cleanup_old_records
     # Report on results, raising errors for unexpected conditions
     ScraperUtils::LogUtils.report_on_results(authorities, exceptions)
   end
@@ -92,6 +92,10 @@ if __FILE__ == $PROGRAM_NAME
 
     ENV["MORPH_EXPECT_BAD"] = default_expect_bad.keys.join(',')
   end
+  # If the sites have many unusable records - raise defaults
+  # ENV['MORPH_UNPROCESSABLE_BASE'] ||= "10"
+  # ENV['MORPH_UNPROCESSABLE_PERCENTAGE'] ||= "20"
+
   Scraper.run(Scraper.selected_authorities)
 
   # Dump database for morph-cli

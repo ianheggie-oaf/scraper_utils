@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.12.1 - 2026.02-18
+
+* Added override for the threshold of when to abdon scraping due to unprocessable records
+  * $MORPH_UNPROCESSABLE_BASE - default 5.01
+  * $MORPH_UNPROCESSABLE_PERCENTAGE - default 10
+* Log council_reference as well as address for unprocessable records
+
 ## 0.11.1 - 2026-02-13
 
 * Output council_reference from log_saved_record as it helps me debug some web query issues
