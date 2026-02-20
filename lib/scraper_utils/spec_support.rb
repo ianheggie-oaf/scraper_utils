@@ -78,6 +78,19 @@ module ScraperUtils
       "#{prefix}#{authority_labels.first}#{suffix}"
     end
 
+    # Finds records with duplicate [authority_label, council_reference] keys.
+    # @param records [Array<Hash>] All records to check
+    # @raises [Hash<Array<String>, Array<Hash>>, nil] Groups of duplicate records keys by primary key, or nil if all unique
+    def self.validate_unique_references!(records)
+      groups = records.group_by do |r|
+        [r["authority_label"], r["council_reference"]&.downcase]
+      end
+      duplicates = groups.select { |_k, g| g.size > 1 }
+      return if duplicates.empty?
+
+      raise UnprocessableSite, "Duplicate authority labels: #{duplicates.keys.map(&:inspect).join(', ')}"
+    end
+
     # Validates enough addresses are geocodable
     # @param results [Array<Hash>] The results from scraping an authority
     # @param percentage [Integer] The min percentage of addresses expected to be geocodable (default:50)
@@ -93,7 +106,9 @@ module ScraperUtils
       puts "Found #{geocodable} out of #{results.count} unique geocodable addresses " \
              "(#{(100.0 * geocodable / results.count).round(1)}%)"
       expected = [((percentage.to_f / 100.0) * results.count - variation), 1].max
-      raise "Expected at least #{expected} (#{percentage}% - #{variation}) geocodable addresses, got #{geocodable}" unless geocodable >= expected
+      unless geocodable >= expected
+        raise UnprocessableSite, "Expected at least #{expected} (#{percentage}% - #{variation}) geocodable addresses, got #{geocodable}"
+      end
       geocodable
     end
 
@@ -157,7 +172,7 @@ module ScraperUtils
       puts "Found #{descriptions} out of #{results.count} unique reasonable descriptions " \
              "(#{(100.0 * descriptions / results.count).round(1)}%)"
       expected = [(percentage.to_f / 100.0) * results.count - variation, 1].max
-      raise "Expected at least #{expected} (#{percentage}% - #{variation}) reasonable descriptions, got #{descriptions}" unless descriptions >= expected
+      raise UnprocessableSite, "Expected at least #{expected} (#{percentage}% - #{variation}) reasonable descriptions, got #{descriptions}" unless descriptions >= expected
       descriptions
     end
 
@@ -278,7 +293,7 @@ module ScraperUtils
           next
         end
 
-        raise "Expected 200 response, got #{page.code}" unless page.code == "200"
+        raise UnprocessableRecord, "Expected 200 response, got #{page.code}" unless page.code == "200"
 
         page_body = page.body.dup.force_encoding("UTF-8").gsub(/\s\s+/, " ")
 
@@ -310,12 +325,10 @@ module ScraperUtils
           min_required = ((percentage.to_f / 100.0) * count - variation).round(0)
           passed = count - failed
           raise "Too many failures: #{passed}/#{count} passed (min required: #{min_required})" if passed < min_required
-          end
-          end
+        end
+      end
 
-          puts "#{(100.0 * (count - failed) / count).round(1)}% detail checks passed (#{failed}/#{count} failed)!" if count > 0
-          end
-
-          end
-          end
-
+      puts "#{(100.0 * (count - failed) / count).round(1)}% detail checks passed (#{failed}/#{count} failed)!" if count > 0
+    end
+  end
+end

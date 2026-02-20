@@ -22,22 +22,6 @@ RSpec.describe ScraperUtils::LogUtils do
   let(:empty_exceptions) { {} }
   let(:run_at) { Time.now - 123 }
 
-  describe ".cleanup_old_records" do
-    it "performs cleanup_old_records once per day" do
-      [
-        ScraperUtils::LogUtils::SUMMARY_TABLE,
-        ScraperUtils::LogUtils::LOG_TABLE
-      ].each do |table|
-        expect(ScraperWiki)
-          .to receive(:sqliteexecute)
-          .with("DELETE FROM #{table} WHERE date(run_at) < date(?)", [be_a(String)])
-          .once
-      end
-      described_class.cleanup_old_records(force: true)
-      described_class.cleanup_old_records
-    end
-  end
-
   describe ".report_on_results" do
     before do
       # Mock DataQualityMonitor stats for broken_council

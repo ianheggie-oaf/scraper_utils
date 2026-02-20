@@ -85,7 +85,7 @@ module ScraperUtils
         failed
       )
 
-      cleanup_old_records
+      DbUtils::cleanup_old_records
     end
 
     # Extracts the first relevant line from backtrace that's from our project
@@ -225,21 +225,13 @@ module ScraperUtils
       )
     end
 
+    # Moved to DbUtils
+    # :nocov:
     def self.cleanup_old_records(force: false)
-      cutoff = (Date.today - LOG_RETENTION_DAYS).to_s
-      return if !force && @last_cutoff == cutoff
-
-      @last_cutoff = cutoff
-
-      [SUMMARY_TABLE, LOG_TABLE].each do |table|
-        ScraperWiki.sqliteexecute(
-          "DELETE FROM #{table} WHERE date(run_at) < date(?)",
-          [cutoff]
-        )
-      rescue SqliteMagic::NoSuchTable => e
-        ScraperUtils::LogUtils.log "Ignoring: #{e} whilst cleaning old records" if ScraperUtils::DebugUtils.trace?
-      end
+      warn "`#{self.class}##{__method__}` is deprecated and will be removed in a future release, use `ScraperUtils::DbUtils.cleanup_old_records` instead.", category: :deprecated
+      ScraperUtils::DbUtils.cleanup_old_records(force: force)
     end
+    # :nocov:
 
     # Extracts meaningful backtrace - 3 lines from ruby/gem and max 6 in total
     def self.extract_meaningful_backtrace(error)

@@ -182,11 +182,11 @@ RSpec.describe ScraperUtils::SpecSupport do
 
     context 'with insufficient geocodable addresses' do
       it 'raises error with default parameters' do
-        expect { described_class.validate_addresses_are_geocodable!(non_geocodable_results) }.to raise_error(RuntimeError, /Expected at least .* geocodable addresses/)
+        expect { described_class.validate_addresses_are_geocodable!(non_geocodable_results) }.to raise_error(ScraperUtils::UnprocessableSite, /Expected at least .* geocodable addresses/)
       end
 
       it 'raises error with custom parameters' do
-        expect { described_class.validate_addresses_are_geocodable!(non_geocodable_results, percentage: 80, variation: 1) }.to raise_error(RuntimeError, /Expected at least .* \(80% - 1\) geocodable addresses/)
+        expect { described_class.validate_addresses_are_geocodable!(non_geocodable_results, percentage: 80, variation: 1) }.to raise_error(ScraperUtils::UnprocessableSite, /Expected at least .* \(80% - 1\) geocodable addresses/)
       end
     end
 
@@ -225,11 +225,11 @@ RSpec.describe ScraperUtils::SpecSupport do
 
     context 'with insufficient reasonable descriptions' do
       it 'raises error with default parameters' do
-        expect { described_class.validate_descriptions_are_reasonable!(unreasonable_results) }.to raise_error(RuntimeError, /Expected at least .* reasonable descriptions/)
+        expect { described_class.validate_descriptions_are_reasonable!(unreasonable_results) }.to raise_error(ScraperUtils::UnprocessableSite, /Expected at least .* reasonable descriptions/)
       end
 
       it 'raises error with custom parameters' do
-        expect { described_class.validate_descriptions_are_reasonable!(unreasonable_results, percentage: 80, variation: 1) }.to raise_error(RuntimeError, /Expected at least .* \(80% - 1\) reasonable descriptions/)
+        expect { described_class.validate_descriptions_are_reasonable!(unreasonable_results, percentage: 80, variation: 1) }.to raise_error(ScraperUtils::UnprocessableSite, /Expected at least .* \(80% - 1\) reasonable descriptions/)
       end
     end
 
@@ -313,6 +313,17 @@ RSpec.describe ScraperUtils::SpecSupport do
 
       stub_request(:get, 'https://example.com/2')
         .to_return(status: 200, body: 'REF002 456 Jones Ave Renovation work', headers: { 'Content-Type' => 'text/html' })
+    end
+
+    context 'when bot protection is detected and bot_check_expected is true' do
+      before do
+        stub_request(:get, 'https://example.com/1')
+          .to_return(status: 200, body: 'Please complete the reCAPTCHA challenge', headers: { 'Content-Type' => 'text/html' })
+      end
+
+      it 'skips validation for bot-protected pages' do
+        expect { described_class.validate_info_urls_have_expected_details!(results, bot_check_expected: true) }.not_to raise_error
+      end
     end
 
     context 'with sufficient passing detail checks' do
@@ -411,6 +422,107 @@ RSpec.describe ScraperUtils::SpecSupport do
 
       it 'returns false for page with no body' do
         expect(described_class.bot_protection_detected?(page_no_body)).to be false
+      end
+    end
+  end
+
+  describe ".validate_unique_references!" do
+    context "with unique references" do
+      let(:records) do
+        [
+          { "authority_label" => "sydney", "council_reference" => "DA001" },
+          { "authority_label" => "sydney", "council_reference" => "DA002" }
+        ]
+      end
+
+      it "does not throw an error" do
+        described_class.validate_unique_references!(records)
+      end
+    end
+
+    context "with duplicate references" do
+      let(:records) do
+        [
+          { "authority_label" => "sydney", "council_reference" => "DA001" },
+          { "authority_label" => "sydney", "council_reference" => "da001" }
+        ]
+      end
+
+      it "returns the duplicate groups" do
+        expect do
+          described_class.validate_unique_references!(records)
+        end.to raise_error
+      end
+    end
+
+    context "with duplicates across nil authority_labels" do
+      let(:records) do
+        [
+          { "council_reference" => "DA001" },
+          { "council_reference" => "DA001" }
+        ]
+      end
+
+      it "raises an exception reporting the duplicate groups" do
+        expect do
+          described_class.validate_unique_references!(records)
+        end.to raise_error(ScraperUtils::UnprocessableSite, /Duplicate authority labels: \[nil, "da001"\]/)
+      end
+    end
+
+    context "with duplicates across different authority_labels" do
+      let(:records) do
+        [
+          { "authority_label" => "sydney", "council_reference" => "DA001" },
+          { "authority_label" => "melbourne", "council_reference" => "DA001" }
+        ]
+      end
+
+      it "does not throw an error as they are different authorities" do
+        described_class.validate_unique_references!(records)
+      end
+    end
+  end
+
+  describe '.validate_unique_references!' do
+    context 'with unique references' do
+      let(:results) do
+        [
+          { 'authority_label' => 'sydney', 'council_reference' => 'DA001' },
+          { 'authority_label' => 'sydney', 'council_reference' => 'DA002' }
+        ]
+      end
+
+      it 'returns nil when all references are unique' do
+        expect(described_class.validate_unique_references!(results)).to be_nil
+      end
+    end
+
+    context 'with duplicate references' do
+      let(:results) do
+        [
+          { 'authority_label' => 'sydney', 'council_reference' => 'DA001' },
+          { 'authority_label' => 'sydney', 'council_reference' => 'da001' }
+        ]
+      end
+
+      it 'raises an error for case-insensitive duplicates' do
+        expect { described_class.validate_unique_references!(results) }
+          .to raise_error(ScraperUtils::UnprocessableSite, /Duplicate/)
+      end
+    end
+
+    context 'with duplicate references across nil authority_labels' do
+      let(:results) do
+        [
+          { 'council_reference' => 'DA001' },
+          { 'council_reference' => 'DA001' }
+        ]
+      end
+
+      it 'raises an error' do
+        expect { described_class.validate_unique_references!(results) }
+          .to raise_error(ScraperUtils::UnprocessableSite, /Duplicate/)
       end
     end
   end

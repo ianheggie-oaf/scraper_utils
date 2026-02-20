@@ -47,7 +47,7 @@ RSpec.describe ScraperUtils::DataQualityMonitor do
 
     it "allows more unprocessable records proportional to saved records" do
       error = ScraperUtils::UnprocessableRecord.new("Test error")
-      record = { "address" => "123 Test St", "authority_label" => "test_authority" }
+      record = { "address" => "123 Test St", "authority_label" => "test_authority", "council_reference" => "DA1234" }
 
       # Log 10 saved records
       10.times do

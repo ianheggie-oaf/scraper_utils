@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.13.1 - 2026.02-21
+
+* Added PaValidation that validates based
+  on [How to write a scraper](https://www.planningalerts.org.au/how_to_write_a_scraper)
+  * `ScraperUtils::PaValidation.validate_record!` raises an exception if record is invalid, calls
+  * `ScraperUtils::PaValidation.validate_record` returns an Array of error messages if record is invalid, otherwise nil
+* Added `ScraperUtils::SpecSupport.validate_unique_references!` which validates that all references are unique
+  * Note: due to saving records based on the unique reference, any duplicates are overwritten and are never presented to
+    PA, so this is basically checking that you are not losing records due to an incorrect reference
+* Refactored `DbUtils.save_record` to use PaValidation
+* Merged `clean_old_records` from LogUtils into same method in DbUtils bringing across `force` named param
+  * `LogUtils.clean_old_records` now warns if it is deprecated
+* Increased test coverage
+* Fixed edge case in `ScraperUtils::MechanizeUtils::AgentConfig#verify_proxy_works` - it now raises an exception on json
+  parse error
+
 ## 0.12.1 - 2026.02-18
 
 * Added override for the threshold of when to abdon scraping due to unprocessable records
@@ -34,15 +50,18 @@
 
 ## 0.9.0 - 2025-07-11
 
-**Significant cleanup - removed code we ended up not using as none of the councils are actually concerned about server load**
+**Significant cleanup - removed code we ended up not using as none of the councils are actually concerned about server
+load**
 
 * Refactored example code into simple callable methods
 * Expand test for geocodeable addresses to include comma between postcode and state at the end of the address.
 
 ### Added
+
 - `ScraperUtils::SpecSupport.validate_addresses_are_geocodable!` - validates percentage of geocodable addresses
 - `ScraperUtils::SpecSupport.validate_descriptions_are_reasonable!` - validates percentage of reasonable descriptions
-- `ScraperUtils::SpecSupport.validate_uses_one_valid_info_url!` - validates single global info_url usage and availability
+- `ScraperUtils::SpecSupport.validate_uses_one_valid_info_url!` - validates single global info_url usage and
+  availability
 - `ScraperUtils::SpecSupport.validate_info_urls_have_expected_details!` - validates info_urls contain expected content
 - `ScraperUtils::MathsUtils.fibonacci_series` - generates fibonacci sequence up to max value
 - `bot_check_expected` parameter to info_url validation methods for handling reCAPTCHA/Cloudflare protection
@@ -53,10 +72,12 @@
 - .editorconfig as an example for scrapers
 
 ### Fixed
+
 - Typo in `geocodable?` method debug output (`has_suburb_stats` → `has_suburb_states`)
 - Code example in `docs/enhancing_specs.md`
 
 ### Updated
+
 - `ScraperUtils::SpecSupport.acceptable_description?` - Accept 1 or 2 word descriptors with planning specific terms
 - Code example in `docs/enhancing_specs.md` to reflect new support methods
 - Code examples
@@ -68,6 +89,7 @@
 - Added extra street types
 
 ### Removed
+
 - Unsued CycleUtils
 - Unused DateRangeUtils
 - Unused RandomizeUtils
@@ -150,7 +172,8 @@ Fixed broken v0.2.0
 
 ## 0.2.0 - 2025-02-28
 
-Added FiberScheduler, enabled complient mode with delays by default and simplified usage removing third retry without proxy
+Added FiberScheduler, enabled complient mode with delays by default and simplified usage removing third retry without
+proxy
 
 ## 0.1.0 - 2025-02-23
 

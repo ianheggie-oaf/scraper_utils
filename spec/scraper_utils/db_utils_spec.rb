@@ -142,9 +142,53 @@ RSpec.describe ScraperUtils::DbUtils do
       end
     end
 
+    context "with invalid info_url" do
+      it "raises an error for a non-http scheme" do
+        record = valid_record.merge("info_url" => "ftp://example.com")
+        expect do
+          described_class.save_record(record)
+        end.to raise_error(ScraperUtils::UnprocessableRecord, /info_url must be a valid http\/https URL/)
+      end
+
+      it "raises an error for a URL without a host" do
+        record = valid_record.merge("info_url" => "https://")
+        expect do
+          described_class.save_record(record)
+        end.to raise_error(ScraperUtils::UnprocessableRecord, /info_url must be a valid http\/https URL/)
+      end
+
+      it "raises an error for a plain string" do
+        record = valid_record.merge("info_url" => "not-a-url")
+        expect do
+          described_class.save_record(record)
+        end.to raise_error(ScraperUtils::UnprocessableRecord, /info_url must be a valid http\/https URL/)
+      end
+
+      it "accepts a valid https URL" do
+        record = valid_record.merge("info_url" => "https://council.gov.au/app?id=123")
+        expect(ScraperWiki).to receive(:save_sqlite).with(["council_reference"], record)
+        expect(ScraperUtils::DataQualityMonitor).to receive(:log_saved_record).with(record)
+        described_class.save_record(record)
+      end
+    end
+
     context "with invalid date formats" do
+      it "raises an error for non-ISO date_scraped" do
+        record = valid_record.merge("date_scraped" => "23 Aug 2024")
+        expect do
+          described_class.save_record(record)
+        end.to raise_error(ScraperUtils::UnprocessableRecord, /Invalid date format/)
+      end
+
       it "raises an error for invalid date_scraped" do
         record = valid_record.merge("date_scraped" => "invalid-date")
+        expect do
+          described_class.save_record(record)
+        end.to raise_error(ScraperUtils::UnprocessableRecord, /Invalid date format/)
+      end
+
+      it "raises an error for non-ISO date_received" do
+        record = valid_record.merge("date_received" => "23/08/2024")
         expect do
           described_class.save_record(record)
         end.to raise_error(ScraperUtils::UnprocessableRecord, /Invalid date format/)
@@ -169,6 +213,27 @@ RSpec.describe ScraperUtils::DbUtils do
         expect do
           described_class.save_record(record)
         end.to raise_error(ScraperUtils::UnprocessableRecord, /Invalid date format/)
+      end
+
+      it "accepts Date objects for date fields" do
+        record = valid_record.merge("date_received" => Date.today)
+        expect(ScraperWiki).to receive(:save_sqlite).with(["council_reference"], record)
+        expect(ScraperUtils::DataQualityMonitor).to receive(:log_saved_record).with(record)
+        described_class.save_record(record)
+      end
+
+      it "accepts DateTime objects for date fields" do
+        record = valid_record.merge("date_received" => DateTime.now)
+        expect(ScraperWiki).to receive(:save_sqlite).with(["council_reference"], record)
+        expect(ScraperUtils::DataQualityMonitor).to receive(:log_saved_record).with(record)
+        described_class.save_record(record)
+      end
+
+      it "accepts Time objects for date fields" do
+        record = valid_record.merge("date_received" => Time.now)
+        expect(ScraperWiki).to receive(:save_sqlite).with(["council_reference"], record)
+        expect(ScraperUtils::DataQualityMonitor).to receive(:log_saved_record).with(record)
+        described_class.save_record(record)
       end
     end
   end

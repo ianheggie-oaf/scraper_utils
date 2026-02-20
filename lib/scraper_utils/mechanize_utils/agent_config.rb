@@ -227,6 +227,7 @@ module ScraperUtils
         rescue JSON::ParserError => e
           puts "Couldn't parse public_headers: #{e}! Raw response:"
           puts my_headers.inspect
+          raise "Couldn't parse public_headers as JSON: #{e}!"
         end
       rescue Timeout::Error => e # Includes Net::OpenTimeout
         raise "Proxy check timed out: #{e}"

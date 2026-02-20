@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "uri"
 require "scraperwiki"
 
 module ScraperUtils
@@ -27,23 +28,10 @@ module ScraperUtils
     # @raise [ScraperUtils::UnprocessableRecord] If record fails validation
     # @return [void]
     def self.save_record(record)
-      # Validate required fields
-      required_fields = %w[council_reference address description info_url date_scraped]
-      required_fields.each do |field|
-        if record[field].to_s.empty?
-          raise ScraperUtils::UnprocessableRecord, "Missing required field: #{field}"
-        end
-      end
+      record = record.transform_keys(&:to_s)
+      ScraperUtils::PaValidation.validate_record!(record)
 
-      # Validate date formats
-      %w[date_scraped date_received on_notice_from on_notice_to].each do |date_field|
-        Date.parse(record[date_field]) unless record[date_field].to_s.empty?
-      rescue ArgumentError
-        raise ScraperUtils::UnprocessableRecord,
-              "Invalid date format for #{date_field}: #{record[date_field].inspect}"
-      end
-
-      # Determine primary key based on presence of authority_label
+      # Determine the primary key based on the presence of authority_label
       primary_key = if record.key?("authority_label")
                       %w[authority_label council_reference]
                     else
@@ -58,7 +46,7 @@ module ScraperUtils
     end
 
     # Clean up records older than 30 days and approx once a month vacuum the DB
-    def self.cleanup_old_records
+    def self.cleanup_old_records(force: false)
       cutoff_date = (Date.today - 30).to_s
       vacuum_cutoff_date = (Date.today - 35).to_s
 
@@ -70,15 +58,17 @@ module ScraperUtils
       deleted_count = stats["count"]
       oldest_date = stats["oldest"]
 
-      return unless deleted_count.positive? || ENV["VACUUM"]
+      return unless deleted_count.positive? || ENV["VACUUM"] || force
 
       LogUtils.log "Deleting #{deleted_count} applications scraped between #{oldest_date} and #{cutoff_date}"
       ScraperWiki.sqliteexecute("DELETE FROM data WHERE date_scraped < ?", [cutoff_date])
 
-      return unless rand < 0.03 || (oldest_date && oldest_date < vacuum_cutoff_date) || ENV["VACUUM"]
+      return unless rand < 0.03 || (oldest_date && oldest_date < vacuum_cutoff_date) || ENV["VACUUM"] || force
 
       LogUtils.log "  Running VACUUM to reclaim space..."
       ScraperWiki.sqliteexecute("VACUUM")
+    rescue SqliteMagic::NoSuchTable => e
+      ScraperUtils::LogUtils.log "Ignoring: #{e} whilst cleaning old records" if ScraperUtils::DebugUtils.trace?
     end
   end
 end
