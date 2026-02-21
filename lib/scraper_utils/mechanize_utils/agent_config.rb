@@ -2,6 +2,7 @@
 
 require "mechanize"
 require "ipaddr"
+require_relative "../host_throttler"
 
 module ScraperUtils
   module MechanizeUtils
@@ -76,8 +77,7 @@ module ScraperUtils
       attr_reader :user_agent
 
       # Give access for testing
-
-      attr_reader :max_load, :crawl_delay
+      attr_reader :max_load, :crawl_delay, :throttler
 
       # Creates Mechanize agent configuration with sensible defaults overridable via configure
       # @param timeout [Integer, nil] Timeout for agent connections (default: 60)
@@ -107,6 +107,7 @@ module ScraperUtils
         @crawl_delay = crawl_delay.nil? ? self.class.default_crawl_delay : crawl_delay.to_f
         # Clamp between 10 (delay 9 x response) and 100 (no delay)
         @max_load = (max_load.nil? ? self.class.default_max_load : max_load).to_f.clamp(10.0, 100.0)
+        @throttler = HostThrottler.new(crawl_delay: @crawl_delay, max_load: @max_load)
 
         # Validate proxy URL format if proxy will be used
         @australian_proxy &&= !ScraperUtils.australian_proxy.to_s.empty?
@@ -155,6 +156,7 @@ module ScraperUtils
 
         agent.pre_connect_hooks << method(:pre_connect_hook)
         agent.post_connect_hooks << method(:post_connect_hook)
+        agent.error_hooks << method(:error_hook) if agent.respond_to?(:error_hooks)
       end
 
       private
@@ -175,36 +177,39 @@ module ScraperUtils
       end
 
       def pre_connect_hook(_agent, request)
-        @connection_started_at = Time.now
-        return unless DebugUtils.verbose?
-
-        ScraperUtils::LogUtils.log(
-          "Pre Connect request: #{request.inspect} at #{@connection_started_at}"
-        )
+        hostname = request.respond_to?(:uri) ? request.uri.host : 'unknown'
+        @throttler.before_request(hostname)
+        if DebugUtils.verbose?
+          ScraperUtils::LogUtils.log(
+            "Pre Connect request: #{request.inspect}"
+          )
+        end
       end
 
       def post_connect_hook(_agent, uri, response, _body)
         raise ArgumentError, "URI must be present in post-connect hook" unless uri
 
-        response_time = Time.now - @connection_started_at
-
-        response_delay = @crawl_delay || 0.0
-        if @crawl_delay ||@max_load
-          response_delay += response_time
-          if @max_load && @max_load >= 1
-            response_delay += (100.0 - @max_load) * response_time / @max_load
-          end
-          response_delay = response_delay.round(3)
-        end
+        status = response.respond_to?(:code) ? response.code.to_i : nil
+        overloaded = [429, 500, 503].include?(status)
+        @throttler.after_request(uri.host, overloaded: overloaded)
 
         if DebugUtils.basic?
           ScraperUtils::LogUtils.log(
-            "Post Connect uri: #{uri.inspect}, response: #{response.inspect} " \
-              "after #{response_time} seconds#{response_delay > 0.0 ? ", pausing for #{response_delay} seconds" : ""}"
+            "Post Connect uri: #{uri.inspect}, response: #{response.inspect}"
           )
         end
-        sleep(response_delay) if response_delay > 0.0
         response
+      end
+
+      def error_hook(_agent, error)
+        # Best-effort: record the error against whatever host we can find
+        # Mechanize errors often carry the URI in the message; fall back to 'unknown'
+        hostname = if error.respond_to?(:uri)
+                     error.uri.host
+                   else
+                     'unknown'
+                   end
+        @throttler.after_request(hostname, overloaded: HostThrottler.overload_error?(error))
       end
 
       def verify_proxy_works(agent)

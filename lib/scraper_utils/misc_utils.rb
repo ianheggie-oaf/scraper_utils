@@ -1,23 +1,36 @@
 # frozen_string_literal: true
 
+require_relative "host_throttler"
+
 module ScraperUtils
   # Misc Standalone Utilities
   module MiscUtils
-    MAX_PAUSE = 120.0
+    THROTTLE_HOSTNAME = "block"
 
     class << self
-      attr_accessor :pause_duration
-
-      # Throttle block to be nice to servers we are scraping
-      def throttle_block(extra_delay: 0.5)
-        if @pause_duration&.positive?
-          puts "Pausing #{@pause_duration}s" if ScraperUtils::DebugUtils.trace?
-          sleep(@pause_duration)
+      # Throttle block to be nice to servers we are scraping.
+      # Time spent inside the block (parsing, saving) counts toward the delay.
+      def throttle_block
+        throttler.before_request(THROTTLE_HOSTNAME)
+        begin
+          result = yield
+          throttler.after_request(THROTTLE_HOSTNAME)
+          result
+        rescue StandardError => e
+          throttler.after_request(THROTTLE_HOSTNAME, overloaded: HostThrottler.overload_error?(e))
+          raise
         end
-        start_time = Time.now.to_f
-        result = yield
-        @pause_duration = (Time.now.to_f - start_time + extra_delay).round(3).clamp(0.0, MAX_PAUSE)
-        result
+      end
+
+      # Reset the internal throttler (useful in tests)
+      def reset_throttler!
+        @throttler = nil
+      end
+
+      private
+
+      def throttler
+        @throttler ||= HostThrottler.new
       end
     end
   end
