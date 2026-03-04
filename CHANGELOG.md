@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.15.0 - 2026-03-05
+
+* Add `validate_info_urls_are_present!` to check info_urls respond with 2xx status using HEAD requests
+* Fix pre_connect_hook hostname extraction to use `request['Host']` header
+
 ## 0.14.1 - 2026-03-04
 
 * Can pass `known_suburbs: ['Suburb', ...]` to `ScraperUtils::SpecSupport.validate_addresses_are_geocodable!` and
