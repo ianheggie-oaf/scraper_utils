@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.14.1 - 2026-03-04
+
+* Can pass `known_suburbs: ['Suburb', ...]` to `ScraperUtils::SpecSupport.validate_addresses_are_geocodable!` and
+  `ScraperUtils::SpecSupport.geocodable?` to validate addresses that don't have postcodes nor capitalised suburb names
+* Can pass ignore_case: true to relax the requirement for either postcode or uppercase suburb when you don't want to
+  pass Known suburb.
+* Move Throttling to HostThrottler
+
 ## 0.13.1 - 2026.02-21
 
 * Added PaValidation that validates based

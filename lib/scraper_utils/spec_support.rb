@@ -95,14 +95,16 @@ module ScraperUtils
     # @param results [Array<Hash>] The results from scraping an authority
     # @param percentage [Integer] The min percentage of addresses expected to be geocodable (default:50)
     # @param variation [Integer] The variation allowed in addition to percentage (default:3)
+    # @param ignore_case [Boolean] Ignores case which relaxes suburb check
+    # @param known_suburbs [Array<String>] Known suburbs to detect in address when there is no postcode and no uppercase suburb
     # @raise RuntimeError if insufficient addresses are geocodable
-    def self.validate_addresses_are_geocodable!(results, percentage: 50, variation: 3)
+    def self.validate_addresses_are_geocodable!(results, percentage: 50, variation: 3, ignore_case: false, known_suburbs: [])
       return nil if results.empty?
 
       geocodable = results
                      .map { |record| record["address"] }
                      .uniq
-                     .count { |text| ScraperUtils::SpecSupport.geocodable? text }
+                     .count { |text| ScraperUtils::SpecSupport.geocodable? text, known_suburbs: known_suburbs, ignore_case: ignore_case }
       puts "Found #{geocodable} out of #{results.count} unique geocodable addresses " \
              "(#{(100.0 * geocodable / results.count).round(1)}%)"
       expected = [((percentage.to_f / 100.0) * results.count - variation), 1].max
@@ -115,8 +117,10 @@ module ScraperUtils
     # Check if an address is likely to be geocodable by analyzing its format.
     # This is a bit stricter than needed - typically assert >= 75% match
     # @param address [String] The address to check
+    # @param ignore_case [Boolean] Ignores case which relaxes suburb check
+    # @param known_suburbs [Array<String>] Known suburbs to detect in address when there is no postcode and no uppercase suburb
     # @return [Boolean] True if the address appears to be geocodable.
-    def self.geocodable?(address, ignore_case: false)
+    def self.geocodable?(address, ignore_case: false, known_suburbs: [])
       return false if address.nil? || address.empty?
       check_address = ignore_case ? address.upcase : address
 
@@ -129,16 +133,17 @@ module ScraperUtils
 
       uppercase_words = address.scan(/\b[A-Z]{2,}\b/)
       has_uppercase_suburb = uppercase_words.any? { |word| !AUSTRALIAN_STATES.include?(word) }
+      has_known_suburb = known_suburbs.any? { |suburb| address.include?(suburb) }
 
       if ENV["DEBUG"]
         missing = []
         missing << "street type" unless has_street_type
-        missing << "postcode/Uppercase suburb" unless has_postcode || has_uppercase_suburb
+        missing << "postcode/Uppercase suburb/Known suburb" unless has_postcode || has_uppercase_suburb || has_known_suburb
         missing << "state" unless has_state
         puts "  address: #{address} is not geocodable, missing #{missing.join(', ')}" if missing.any?
       end
 
-      has_street_type && (has_postcode || has_uppercase_suburb) && has_state
+      has_street_type && (has_postcode || has_uppercase_suburb || has_known_suburb) && has_state
     end
 
     PLACEHOLDERS = [
