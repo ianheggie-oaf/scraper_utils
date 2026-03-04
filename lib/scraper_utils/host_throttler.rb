@@ -25,6 +25,10 @@ module ScraperUtils
       @request_started_at = {} # hostname => Time
     end
 
+    def will_pause_till(hostname)
+      @next_request_at[hostname]
+    end
+
     # Sleep until this host's throttle window has elapsed.
     # Records when the request actually started.
     # @param hostname [String]

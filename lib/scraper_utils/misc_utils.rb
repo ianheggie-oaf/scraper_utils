@@ -27,6 +27,10 @@ module ScraperUtils
         @throttler = nil
       end
 
+      def will_pause_till
+        throttler.will_pause_till(THROTTLE_HOSTNAME)
+      end
+
       private
 
       def throttler

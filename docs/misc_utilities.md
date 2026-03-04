@@ -18,11 +18,5 @@ The throttle automatically:
 - Pauses before next request based on previous timing
 - Caps pause at 120s maximum
 
-Override the next pause duration manually if needed:
-
-```ruby
-ScraperUtils::MiscUtils.pause_duration = 2.0
-```
-
 **Note:** the agent returned by `ScraperUtils::MechanizeUtils.mechanize_agent` automatically applies throttling when
 each request is made and thus does not need to be wrapped with the helper.
