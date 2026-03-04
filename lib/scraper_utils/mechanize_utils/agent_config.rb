@@ -177,7 +177,7 @@ module ScraperUtils
       end
 
       def pre_connect_hook(_agent, request)
-        hostname = request.respond_to?(:uri) ? request.uri.host : 'unknown'
+        hostname = (request.respond_to?(:[]) && request['Host']) || 'unknown'
         @throttler.before_request(hostname)
         if DebugUtils.verbose?
           ScraperUtils::LogUtils.log(
@@ -191,7 +191,8 @@ module ScraperUtils
 
         status = response.respond_to?(:code) ? response.code.to_i : nil
         overloaded = [429, 500, 503].include?(status)
-        @throttler.after_request(uri.host, overloaded: overloaded)
+        hostname = uri.host || 'unknown'
+        @throttler.after_request(hostname, overloaded: overloaded)
 
         if DebugUtils.basic?
           ScraperUtils::LogUtils.log(
@@ -206,9 +207,7 @@ module ScraperUtils
         # Mechanize errors often carry the URI in the message; fall back to 'unknown'
         hostname = if error.respond_to?(:uri)
                      error.uri.host
-                   else
-                     'unknown'
-                   end
+                   end || 'unknown'
         @throttler.after_request(hostname, overloaded: HostThrottler.overload_error?(error))
       end
 

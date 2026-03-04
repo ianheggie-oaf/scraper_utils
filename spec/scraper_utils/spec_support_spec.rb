@@ -87,7 +87,7 @@ RSpec.describe ScraperUtils::SpecSupport do
         prev_debug = ENV['DEBUG']
         ENV['DEBUG'] = '1'
         expect { described_class.geocodable?('lot 12 folio a123') }
-          .to output(/address: lot 12 folio a123 is not geocodable, missing street type, postcode\/Uppercase suburb, state/).to_stdout
+          .to output(/address: lot 12 folio a123 is not geocodable, missing street type, postcode\/Uppercase suburb\/Known suburb, state/).to_stdout
       ensure
         ENV['DEBUG'] = prev_debug
       end
@@ -294,6 +294,84 @@ RSpec.describe ScraperUtils::SpecSupport do
 
       it 'raises Mechanize::ResponseCodeError error' do
         expect { described_class.validate_uses_one_valid_info_url!(valid_results, expected_url) }.to raise_error(Mechanize::ResponseCodeError)
+      end
+    end
+  end
+
+  describe '.validate_info_urls_are_present!' do
+    let(:results) do
+      [
+        { 'info_url' => 'https://example.com/1', 'authority_label' => 'sydney' },
+        { 'info_url' => 'https://example.com/2', 'authority_label' => 'sydney' }
+      ]
+    end
+
+    before do
+      stub_request(:head, 'https://example.com/1').to_return(status: 200)
+      stub_request(:head, 'https://example.com/2').to_return(status: 200)
+    end
+
+    context 'with all URLs returning 200' do
+      it 'validates successfully' do
+        expect { described_class.validate_info_urls_are_present!(results) }.not_to raise_error
+      end
+    end
+
+    context 'with a URL returning a 2xx status' do
+      before do
+        stub_request(:head, 'https://example.com/1').to_return(status: 204)
+      end
+
+      it 'validates successfully' do
+        expect { described_class.validate_info_urls_are_present!(results) }.not_to raise_error
+      end
+    end
+
+    context 'with too many failing URLs' do
+      before do
+        stub_request(:head, 'https://example.com/1').to_return(status: 404)
+        stub_request(:head, 'https://example.com/2').to_return(status: 404)
+      end
+
+      it 'raises error when failure threshold exceeded' do
+        expect { described_class.validate_info_urls_are_present!(results, percentage: 90, variation: 0) }
+          .to raise_error(RuntimeError, /Too many failures/)
+      end
+    end
+
+    context 'with bot protection detected' do
+      before do
+        stub_request(:head, 'https://example.com/1').to_return(status: 403)
+      end
+
+      it 'skips bot-protected URLs' do
+        expect { described_class.validate_info_urls_are_present!(results) }.not_to raise_error
+      end
+    end
+
+    context 'with a custom block' do
+      it 'uses the block instead of fetch_url_head' do
+        expect(described_class).not_to receive(:fetch_url_head)
+        page = double(code: '200', body: 'OK')
+        expect { described_class.validate_info_urls_are_present!(results) { page } }.not_to raise_error
+      end
+    end
+
+    context 'with larger result set to test fibonacci sampling' do
+      let(:large_results) do
+        (1..10).map do |i|
+          { 'info_url' => "https://example.com/#{i}", 'authority_label' => 'sydney' }
+        end
+      end
+
+      before do
+        ScraperUtils::MathsUtils.fibonacci_series(9).uniq.each do |i|
+          stub_request(:head, "https://example.com/#{i + 1}").to_return(status: 200)
+        end
+      end
+
+      it 'uses fibonacci sampling correctly' do
+        expect { described_class.validate_info_urls_are_present!(large_results) }.not_to raise_error
       end
     end
   end

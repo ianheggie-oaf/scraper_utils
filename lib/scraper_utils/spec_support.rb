@@ -62,6 +62,13 @@ module ScraperUtils
       'certificate', 'approval', 'consent', 'permit'
     ].freeze
 
+
+    def self.fetch_url_head(url)
+      agent = Mechanize.new
+      # FIXME - Allow injection of a check to agree to terms if needed to set a cookie and reget the url
+      agent.head(url)
+    end
+
     def self.fetch_url_with_redirects(url)
       agent = Mechanize.new
       # FIXME - Allow injection of a check to agree to terms if needed to set a cookie and reget the url
@@ -104,7 +111,16 @@ module ScraperUtils
       geocodable = results
                      .map { |record| record["address"] }
                      .uniq
-                     .count { |text| ScraperUtils::SpecSupport.geocodable? text, known_suburbs: known_suburbs, ignore_case: ignore_case }
+                     .count do |text|
+                       ok = ScraperUtils::SpecSupport.geocodable? text, known_suburbs: known_suburbs, ignore_case: ignore_case
+                        if !ok && DebugUtils.verbose?
+                          ScraperUtils::LogUtils.log(
+                            "Address: #{text.inspect} is not geocodeable with #{known_suburbs&.size} know suburbs, ignore_case: #{ignore_case.inspect}"
+                          )
+                        end
+
+                       ok
+                       end
       puts "Found #{geocodable} out of #{results.count} unique geocodable addresses " \
              "(#{(100.0 * geocodable / results.count).round(1)}%)"
       expected = [((percentage.to_f / 100.0) * results.count - variation), 1].max
@@ -223,6 +239,22 @@ module ScraperUtils
       end
     end
 
+    # Validates that info_urls have are present (respond to HEAD request with 200 to 299 status)
+    # @param results [Array<Hash>] The results from scraping an authority
+    # @param percentage [Integer] The min percentage of detail checks expected to pass (default:75)
+    # @param variation [Integer] The variation allowed in addition to percentage (default:3)
+    # @yield [String] Optional block to customize URL fetching (e.g., handle terms agreement)
+    # @raise RuntimeError if insufficient detail checks pass
+    def self.validate_info_urls_are_present!(results, percentage: 75, variation: 3, &block)
+      if defined?(VCR)
+        VCR.use_cassette("#{authority_label(results, suffix: '_')}info_urls") do
+          check_info_url_is_present(results, percentage, variation, &block)
+        end
+      else
+        check_info_url_is_present(results, percentage, variation, &block)
+      end
+    end
+
     # Validates that info_urls have expected details (unique URLs with content validation)
     # @param results [Array<Hash>] The results from scraping an authority
     # @param percentage [Integer] The min percentage of detail checks expected to pass (default:75)
@@ -280,6 +312,43 @@ module ScraperUtils
     end
 
     private
+
+    def self.check_info_url_is_present(results, percentage, variation, &block)
+      count = 0
+      failed = 0
+      fib_indices = ScraperUtils::MathsUtils.fibonacci_series(results.size - 1).uniq
+
+      fib_indices.each do |index|
+        record = results[index]
+        info_url = record["info_url"]
+        puts "Checking info_url[#{index}]: #{info_url} is present..."
+
+        begin
+          page = block_given? ? block.call(info_url) : fetch_url_head(info_url)
+          status = page.code.to_i
+        rescue Mechanize::ResponseCodeError => e
+          status = e.response_code.to_i
+        end
+
+        if [403, 429].include?(status)
+          puts "  Bot protection detected - skipping"
+          next
+        end
+
+        count += 1
+        if status.between?(200, 299)
+          puts "  OK: #{status}" if ENV['DEBUG']
+        else
+          failed += 1
+          puts "  Failed: #{status}"
+          min_required = ((percentage.to_f / 100.0) * count - variation).round(0)
+          passed = count - failed
+          raise "Too many failures: #{passed}/#{count} passed (min required: #{min_required})" if passed < min_required
+        end
+      end
+
+      puts "#{(100.0 * (count - failed) / count).round(1)}% info_url checks passed (#{failed}/#{count} failed)!" if count > 0
+    end
 
     def self.check_info_url_details(results, percentage, variation, bot_check_expected, &block)
       count = 0
