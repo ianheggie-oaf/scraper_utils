@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.16.0 - 2026-04-08
+* Use defaults from AgentConfig for `throttle_block`, and allow defaults to be overriden
+
 ## 0.15.0 - 2026-03-05
 
 * Add `validate_info_urls_are_present!` to check info_urls respond with 2xx status using HEAD requests
