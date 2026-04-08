@@ -28,11 +28,10 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
       it "creates default configuration and displays it" do
         expect { described_class.new }
           .to output(
-                ["Configuring Mechanize agent with",
-                 "timeout=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_TIMEOUT},",
-                 "australian_proxy=false\n"
-                ].join(' ')
-              ).to_stdout
+            ["Configuring Mechanize agent with",
+             "timeout=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_TIMEOUT},",
+             "australian_proxy=false\n"].join(" ")
+          ).to_stdout
       end
     end
 
@@ -57,11 +56,10 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
         expect do
           described_class.new(australian_proxy: true)
         end.to output(
-                 ["Configuring Mechanize agent with",
-                  "timeout=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_TIMEOUT},",
-                  "australian_proxy=true\n"
-                 ].join(' ')
-               ).to_stdout
+          ["Configuring Mechanize agent with",
+           "timeout=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_TIMEOUT},",
+           "australian_proxy=true\n"].join(" ")
+        ).to_stdout
       ensure
         ENV["MORPH_AUSTRALIAN_PROXY"] = nil
       end
@@ -71,11 +69,10 @@ RSpec.describe ScraperUtils::MechanizeUtils::AgentConfig do
         expect do
           described_class.new(australian_proxy: true)
         end.to output(
-                 ["Configuring Mechanize agent with",
-                  "timeout=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_TIMEOUT},",
-                  "MORPH_AUSTRALIAN_PROXY not set\n",
-                 ].join(' ')
-               ).to_stdout
+          ["Configuring Mechanize agent with",
+           "timeout=#{ScraperUtils::MechanizeUtils::AgentConfig::DEFAULT_TIMEOUT},",
+           "MORPH_AUSTRALIAN_PROXY not set\n"].join(" ")
+        ).to_stdout
       end
     end
   end

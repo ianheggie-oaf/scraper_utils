@@ -53,7 +53,8 @@ RSpec.describe ScraperUtils::DbUtils do
       context "with authority_label" do
         it "uses authority_label in primary key" do
           record = valid_record.merge("authority_label" => "test_council")
-          expect(ScraperWiki).to receive(:save_sqlite).with(%w[authority_label council_reference], record)
+          expect(ScraperWiki).to receive(:save_sqlite).with(%w[authority_label council_reference],
+                                                            record)
           expect(ScraperUtils::DataQualityMonitor).to receive(:log_saved_record).with(record)
           described_class.save_record(record)
         end
@@ -147,21 +148,24 @@ RSpec.describe ScraperUtils::DbUtils do
         record = valid_record.merge("info_url" => "ftp://example.com")
         expect do
           described_class.save_record(record)
-        end.to raise_error(ScraperUtils::UnprocessableRecord, /info_url must be a valid http\/https URL/)
+        end.to raise_error(ScraperUtils::UnprocessableRecord,
+                           %r{info_url must be a valid http/https URL})
       end
 
       it "raises an error for a URL without a host" do
         record = valid_record.merge("info_url" => "https://")
         expect do
           described_class.save_record(record)
-        end.to raise_error(ScraperUtils::UnprocessableRecord, /info_url must be a valid http\/https URL/)
+        end.to raise_error(ScraperUtils::UnprocessableRecord,
+                           %r{info_url must be a valid http/https URL})
       end
 
       it "raises an error for a plain string" do
         record = valid_record.merge("info_url" => "not-a-url")
         expect do
           described_class.save_record(record)
-        end.to raise_error(ScraperUtils::UnprocessableRecord, /info_url must be a valid http\/https URL/)
+        end.to raise_error(ScraperUtils::UnprocessableRecord,
+                           %r{info_url must be a valid http/https URL})
       end
 
       it "accepts a valid https URL" do

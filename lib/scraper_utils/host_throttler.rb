@@ -21,7 +21,7 @@ module ScraperUtils
       @crawl_delay = crawl_delay.to_f
       # Clamp between 10 (delay 9x response) and 100 (no extra delay)
       @max_load = max_load ? max_load.to_f.clamp(10.0, 100.0) : nil
-      @next_request_at = {}   # hostname => Time
+      @next_request_at = {} # hostname => Time
       @request_started_at = {} # hostname => Time
     end
 
@@ -52,23 +52,19 @@ module ScraperUtils
       response_time = Time.now - started
 
       delay = @crawl_delay
-      if @max_load
-        delay += (100.0 - @max_load) * response_time / @max_load
-      end
+      delay += (100.0 - @max_load) * response_time / @max_load if @max_load
 
-      if overloaded
-        delay = delay + response_time * 2 + 5.0
-      end
+      delay = delay + (response_time * 2) + 5.0 if overloaded
 
       delay = delay.round(3).clamp(0.0, MAX_DELAY)
       @next_request_at[hostname] = Time.now + delay
 
-      if DebugUtils.basic?
-        msg = "HostThrottler: #{hostname} response=#{response_time.round(3)}s"
-        msg += " OVERLOADED" if overloaded
-        msg += ", Will delay #{delay}s before next request"
-        LogUtils.log(msg)
-      end
+      return unless DebugUtils.basic?
+
+      msg = "HostThrottler: #{hostname} response=#{response_time.round(3)}s"
+      msg += " OVERLOADED" if overloaded
+      msg += ", Will delay #{delay}s before next request"
+      LogUtils.log(msg)
     end
 
     # Duck-type check for HTTP overload errors across Mechanize, HTTParty, etc.

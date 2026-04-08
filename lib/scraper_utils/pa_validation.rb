@@ -31,8 +31,6 @@ module ScraperUtils
       errors.empty? ? nil : errors
     end
 
-    private
-
     def self.validate_presence(record, errors)
       REQUIRED_FIELDS.each do |field|
         errors << "#{field} can't be blank" if record[field].to_s.strip.empty?
@@ -47,10 +45,10 @@ module ScraperUtils
       begin
         uri = URI.parse(url)
         unless uri.is_a?(URI::HTTP) && uri.host.to_s != ""
-          errors << "info_url must be a valid http\/https URL with host"
+          errors << "info_url must be a valid http/https URL with host"
         end
       rescue URI::InvalidURIError
-        errors << "info_url must be a valid http\/https URL"
+        errors << "info_url must be a valid http/https URL"
       end
     end
 
@@ -58,18 +56,22 @@ module ScraperUtils
       today = Date.today
 
       date_scraped = parse_date(record["date_scraped"])
-      errors << "Invalid date format for date_scraped: #{record["date_scraped"].inspect} is not a valid ISO 8601 date" if record["date_scraped"] && date_scraped.nil?
+      if record["date_scraped"] && date_scraped.nil?
+        errors << "Invalid date format for date_scraped: #{record['date_scraped'].inspect} is not a valid ISO 8601 date"
+      end
 
       date_received = parse_date(record["date_received"])
       if record["date_received"] && date_received.nil?
-        errors << "Invalid date format for date_received: #{record["date_received"].inspect} is not a valid ISO 8601 date"
+        errors << "Invalid date format for date_received: #{record['date_received'].inspect} is not a valid ISO 8601 date"
       elsif date_received && date_received.to_date > today
-        errors << "Invalid date for date_received: #{record["date_received"].inspect} is in the future"
+        errors << "Invalid date for date_received: #{record['date_received'].inspect} is in the future"
       end
 
       %w[on_notice_from on_notice_to].each do |field|
         val = parse_date(record[field])
-        errors << "Invalid date format for #{field}: #{record[field].inspect} is not a valid ISO 8601 date" if record[field] && val.nil?
+        if record[field] && val.nil?
+          errors << "Invalid date format for #{field}: #{record[field].inspect} is not a valid ISO 8601 date"
+        end
       end
     end
 

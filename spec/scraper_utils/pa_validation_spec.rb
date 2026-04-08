@@ -111,6 +111,4 @@ RSpec.describe ScraperUtils::PaValidation do
         .to raise_error(ScraperUtils::UnprocessableRecord, /council_reference/)
     end
   end
-
-
 end

@@ -9,34 +9,34 @@ RSpec.describe ScraperUtils::LogUtils do
       authority = :test_authority
       message = "Test message"
 
-      expect {
+      expect do
         described_class.log(message, authority)
-      }.to output(/\[#{authority}\] #{message}/).to_stdout
+      end.to output(/\[#{authority}\] #{message}/).to_stdout
     end
 
     it "logs a message to stdout without prefix when authority is nil" do
       message = "Test message without prefix"
 
-      expect {
+      expect do
         described_class.log(message)
-      }.to output(/#{message}/).to_stdout
+      end.to output(/#{message}/).to_stdout
 
       # Should not have any square brackets
-      expect {
+      expect do
         described_class.log(message)
-      }.not_to output(/\[.*\]/).to_stdout
+      end.not_to output(/\[.*\]/).to_stdout
     end
 
     it "uses Scheduler.current_authority when no authority provided" do
       authority = :current_authority
-      ENV['AUTHORITY'] = authority.to_s
+      ENV["AUTHORITY"] = authority.to_s
       message = "Test message with current authority"
 
-      expect {
+      expect do
         described_class.log(message)
-      }.to output(/\[#{authority}\] #{message}/).to_stdout
+      end.to output(/\[#{authority}\] #{message}/).to_stdout
     ensure
-      ENV['AUTHORITY'] = nil
+      ENV["AUTHORITY"] = nil
     end
   end
 
@@ -246,7 +246,9 @@ RSpec.describe ScraperUtils::LogUtils do
   describe ".project_backtrace_line" do
     let(:pwd) { "/app" }
     let(:app_line) { "/app/lib/my_scraper.rb:42:in `scrape'" }
-    let(:gem_line) { "/app/vendor/bundle/ruby/3.2.0/gems/mechanize-2.8/lib/mechanize.rb:100:in `get'" }
+    let(:gem_line) do
+      "/app/vendor/bundle/ruby/3.2.0/gems/mechanize-2.8/lib/mechanize.rb:100:in `get'"
+    end
     let(:ruby_line) { "/app/vendor/ruby-3.2.2/lib/ruby/3.2.0/net/http.rb:100:in `start'" }
     let(:other_project_line) { "/other/project/lib/foo.rb:10:in `bar'" }
 
@@ -292,7 +294,8 @@ RSpec.describe ScraperUtils::LogUtils do
       end
 
       it "returns empty string when no match found" do
-        result = described_class.project_backtrace_line([gem_line, ruby_line], pwd: pwd, format: true)
+        result = described_class.project_backtrace_line([gem_line, ruby_line], pwd: pwd,
+                                                                               format: true)
         expect(result).to eq("")
       end
     end
@@ -301,7 +304,7 @@ RSpec.describe ScraperUtils::LogUtils do
       it "finds the project line from a real exception" do
         error = begin
           raise "test error"
-        rescue => e
+        rescue StandardError => e
           e
         end
         # The backtrace will contain this spec file which is under Dir.pwd

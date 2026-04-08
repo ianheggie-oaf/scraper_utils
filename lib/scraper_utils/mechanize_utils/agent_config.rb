@@ -61,12 +61,12 @@ module ScraperUtils
         # Reset all configuration options to their default values
         # @return [void]
         def reset_defaults!
-          @default_timeout = ENV.fetch('MORPH_CLIENT_TIMEOUT', DEFAULT_TIMEOUT).to_i # 60
-          @default_disable_ssl_certificate_check = !ENV.fetch('MORPH_DISABLE_SSL_CHECK', nil).to_s.empty? # false
-          @default_australian_proxy = !ENV.fetch('MORPH_USE_PROXY', nil).to_s.empty? # false
-          @default_user_agent = ENV.fetch('MORPH_USER_AGENT', nil) # Uses Mechanize user agent
-          @default_crawl_delay = ENV.fetch('MORPH_CLIENT_CRAWL_DELAY', DEFAULT_CRAWL_DELAY)
-          @default_max_load = ENV.fetch('MORPH_MAX_LOAD', DEFAULT_MAX_LOAD)
+          @default_timeout = ENV.fetch("MORPH_CLIENT_TIMEOUT", DEFAULT_TIMEOUT).to_i # 60
+          @default_disable_ssl_certificate_check = !ENV.fetch("MORPH_DISABLE_SSL_CHECK", nil).to_s.empty? # false
+          @default_australian_proxy = !ENV.fetch("MORPH_USE_PROXY", nil).to_s.empty? # false
+          @default_user_agent = ENV.fetch("MORPH_USER_AGENT", nil) # Uses Mechanize user agent
+          @default_crawl_delay = ENV.fetch("MORPH_CLIENT_CRAWL_DELAY", DEFAULT_CRAWL_DELAY)
+          @default_max_load = ENV.fetch("MORPH_MAX_LOAD", DEFAULT_MAX_LOAD)
         end
       end
 
@@ -113,10 +113,10 @@ module ScraperUtils
         @australian_proxy &&= !ScraperUtils.australian_proxy.to_s.empty?
         if @australian_proxy
           uri = begin
-                  URI.parse(ScraperUtils.australian_proxy.to_s)
-                rescue URI::InvalidURIError => e
-                  raise URI::InvalidURIError, "Invalid proxy URL format: #{e}"
-                end
+            URI.parse(ScraperUtils.australian_proxy.to_s)
+          rescue URI::InvalidURIError => e
+            raise URI::InvalidURIError, "Invalid proxy URL format: #{e}"
+          end
           unless uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
             raise URI::InvalidURIError, "Proxy URL must start with http:// or https://"
           end
@@ -177,13 +177,13 @@ module ScraperUtils
       end
 
       def pre_connect_hook(_agent, request)
-        hostname = (request.respond_to?(:[]) && request['Host']) || 'unknown'
+        hostname = (request.respond_to?(:[]) && request["Host"]) || "unknown"
         @throttler.before_request(hostname)
-        if DebugUtils.verbose?
-          ScraperUtils::LogUtils.log(
-            "Pre Connect request: #{request.inspect}"
-          )
-        end
+        return unless DebugUtils.verbose?
+
+        ScraperUtils::LogUtils.log(
+          "Pre Connect request: #{request.inspect}"
+        )
       end
 
       def post_connect_hook(_agent, uri, response, _body)
@@ -191,7 +191,7 @@ module ScraperUtils
 
         status = response.respond_to?(:code) ? response.code.to_i : nil
         overloaded = [429, 500, 503].include?(status)
-        hostname = uri.host || 'unknown'
+        hostname = uri.host || "unknown"
         @throttler.after_request(hostname, overloaded: overloaded)
 
         if DebugUtils.basic?
@@ -205,9 +205,7 @@ module ScraperUtils
       def error_hook(_agent, error)
         # Best-effort: record the error against whatever host we can find
         # Mechanize errors often carry the URI in the message; fall back to 'unknown'
-        hostname = if error.respond_to?(:uri)
-                     error.uri.host
-                   end || 'unknown'
+        hostname = (error.uri.host if error.respond_to?(:uri)) || "unknown"
         @throttler.after_request(hostname, overloaded: HostThrottler.overload_error?(error))
       end
 

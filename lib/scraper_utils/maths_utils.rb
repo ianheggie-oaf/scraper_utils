@@ -11,7 +11,8 @@ module ScraperUtils
     def self.fibonacci_series(max)
       result = []
       # Start with the basic Fibonacci sequence
-      last_fib, this_fib = 1, 0
+      last_fib = 1
+      this_fib = 0
       while this_fib <= max
         result << this_fib
         yield this_fib if block_given?

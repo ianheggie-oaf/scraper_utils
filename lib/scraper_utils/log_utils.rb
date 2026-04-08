@@ -14,7 +14,7 @@ module ScraperUtils
     # @param message [String] the message to log
     # @return [void]
     def self.log(message, authority = nil)
-      authority ||= ENV['AUTHORITY']
+      authority ||= ENV.fetch("AUTHORITY", nil)
       $stderr.flush
       if authority
         puts "[#{authority}] #{message}"
@@ -85,7 +85,7 @@ module ScraperUtils
         failed
       )
 
-      DbUtils::cleanup_old_records
+      DbUtils.cleanup_old_records
     end
 
     # Extracts the first relevant line from backtrace that's from our project
@@ -104,15 +104,15 @@ module ScraperUtils
       format = options[:format] || false
 
       # Normalize the root directory path with a trailing slash
-      pwd = File.join(pwd, '')
+      pwd = File.join(pwd, "")
 
       backtrace.each do |line|
-        next if line.include?('/gems/') ||
-                line.include?('/vendor/') ||
-                line.include?('/ruby/')
+        next if line.include?("/gems/") ||
+                line.include?("/vendor/") ||
+                line.include?("/ruby/")
 
         if line.start_with?(pwd)
-          relative_path = line.sub(pwd, '')
+          relative_path = line.sub(pwd, "")
           return format ? " [#{relative_path}]" : relative_path
         end
       end
@@ -138,7 +138,7 @@ module ScraperUtils
       puts "\nScraping Summary:"
       summary_format = "%-20s %6s %6s %s"
 
-      puts format(summary_format, 'Authority', 'OK', 'Bad', 'Exception')
+      puts format(summary_format, "Authority", "OK", "Bad", "Exception")
       puts format(summary_format, "-" * 20, "-" * 6, "-" * 6, "-" * 50)
 
       authorities.each do |authority|
@@ -149,7 +149,8 @@ module ScraperUtils
 
         expect_bad_prefix = expect_bad.include?(authority) ? "[EXPECT BAD] " : ""
         exception_msg = if exceptions[authority]
-                          location = self.project_backtrace_line(exceptions[authority].backtrace, format: true)
+                          location = project_backtrace_line(exceptions[authority].backtrace,
+                                                            format: true)
                           "#{exceptions[authority].class} - #{exceptions[authority]}#{location}"
                         else
                           "-"
@@ -174,12 +175,12 @@ module ScraperUtils
 
       # Check for authorities with unexpected errors
       unexpected_errors = authorities
-                            .select { |authority| exceptions[authority] }
-                            .reject { |authority| expect_bad.include?(authority) }
+                          .select { |authority| exceptions[authority] }
+                          .reject { |authority| expect_bad.include?(authority) }
 
       if unexpected_errors.any?
         errors << "ERROR: Unexpected errors in: #{unexpected_errors.join(',')} " \
-          "(Add to MORPH_EXPECT_BAD?)"
+                  "(Add to MORPH_EXPECT_BAD?)"
         unexpected_errors.each do |authority|
           error = exceptions[authority]
           errors << "  #{authority}: #{error.class} - #{error}"
@@ -228,7 +229,8 @@ module ScraperUtils
     # Moved to DbUtils
     # :nocov:
     def self.cleanup_old_records(force: false)
-      warn "`#{self.class}##{__method__}` is deprecated and will be removed in a future release, use `ScraperUtils::DbUtils.cleanup_old_records` instead.", category: :deprecated
+      warn "`#{self.class}##{__method__}` is deprecated and will be removed in a future release, use `ScraperUtils::DbUtils.cleanup_old_records` instead.",
+           category: :deprecated
       ScraperUtils::DbUtils.cleanup_old_records(force: force)
     end
     # :nocov:
@@ -239,7 +241,9 @@ module ScraperUtils
 
       lines = []
       error.backtrace.each do |line|
-        lines << line if lines.length < 2 || !(line.include?("/vendor/") || line.include?("/gems/") || line.include?("/ruby/"))
+        if lines.length < 2 || !(line.include?("/vendor/") || line.include?("/gems/") || line.include?("/ruby/"))
+          lines << line
+        end
         break if lines.length >= 6
       end
 

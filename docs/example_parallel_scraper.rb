@@ -27,21 +27,20 @@ class Scraper
     begin
       ScraperUtils::DataQualityMonitor.start_authority(authority_label)
       YourScraper.scrape(authority_label) do |record|
-        begin
-          record["authority_label"] = authority_label.to_s
-          ScraperUtils::DbUtils.save_record(record)
-        rescue ScraperUtils::UnprocessableRecord => e
-          # Log bad record but continue processing unless too many have occurred
-          ScraperUtils::DataQualityMonitor.log_unprocessable_record(e, record)
-          unprocessable_record_details << [e, record]
-        end
+        record["authority_label"] = authority_label.to_s
+        ScraperUtils::DbUtils.save_record(record)
+      rescue ScraperUtils::UnprocessableRecord => e
+        # Log bad record but continue processing unless too many have occurred
+        ScraperUtils::DataQualityMonitor.log_unprocessable_record(e, record)
+        unprocessable_record_details << [e, record]
       end
     rescue StandardError => e
       warn "#{authority_label}: ERROR: #{e}"
       warn e.backtrace
       fatal_exception = e
     end
-    [authority_label, ScraperUtils::DbUtils.collected_saves, unprocessable_record_details, fatal_exception]
+    [authority_label, ScraperUtils::DbUtils.collected_saves, unprocessable_record_details,
+     fatal_exception]
   end
 
   # Process authorities in parallel
@@ -54,7 +53,7 @@ class Scraper
       scrape_authority(authority_label, attempt)
     end.each do |authority_label, saves, unprocessable, fatal_exception|
       # Runs in main process
-      status = fatal_exception ? 'FAILED' : 'OK'
+      status = fatal_exception ? "FAILED" : "OK"
       puts "Saving results of #{authority_label}: #{saves.size} records, #{unprocessable.size} unprocessable #{status}"
 
       saves.each do |record|
@@ -65,11 +64,11 @@ class Scraper
         exceptions[authority_label] = e
       end
 
-      if fatal_exception
-        puts "  Warning: #{authority_label} failed with: #{fatal_exception.message}"
-        puts "  Saved #{saves.size} records before failure"
-        exceptions[authority_label] = fatal_exception
-      end
+      next unless fatal_exception
+
+      puts "  Warning: #{authority_label} failed with: #{fatal_exception.message}"
+      puts "  Saved #{saves.size} records before failure"
+      exceptions[authority_label] = fatal_exception
     end
 
     exceptions
@@ -96,7 +95,7 @@ class Scraper
     unless exceptions.empty?
       puts "\n***************************************************"
       puts "Now retrying authorities which earlier had failures"
-      puts exceptions.keys.join(", ").to_s
+      puts exceptions.keys.join(", ")
       puts "***************************************************"
 
       start_time = Time.now
@@ -118,7 +117,7 @@ end
 if __FILE__ == $PROGRAM_NAME
   ENV["MORPH_EXPECT_BAD"] ||= "some,councils"
 
-  process_count = (ENV['MORPH_PROCESSES'] || Etc.nprocessors * 2).to_i
+  process_count = (ENV["MORPH_PROCESSES"] || (Etc.nprocessors * 2)).to_i
 
   Scraper.run(Scraper.selected_authorities, process_count: process_count)
 end

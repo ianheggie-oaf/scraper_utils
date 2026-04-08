@@ -27,7 +27,7 @@ RSpec.describe ScraperUtils::MechanizeUtils do
         compliant_mode: true
       )
       agent.get("https://example.com")
-      elapsed = Time.now - start_time
+      Time.now - start_time
     end
   end
 
@@ -113,5 +113,4 @@ RSpec.describe ScraperUtils::MechanizeUtils do
       end
     end
   end
-
 end

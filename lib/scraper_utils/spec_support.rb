@@ -47,41 +47,43 @@ module ScraperUtils
 
     PLANNING_KEYWORDS = [
       # Building types
-      'dwelling', 'house', 'unit', 'building', 'structure', 'facility',
+      "dwelling", "house", "unit", "building", "structure", "facility",
       # Modifications
-      'addition', 'extension', 'renovation', 'alteration', 'modification',
-      'replacement', 'upgrade', 'improvement',
+      "addition", "extension", "renovation", "alteration", "modification",
+      "replacement", "upgrade", "improvement",
       # Specific structures
-      'carport', 'garage', 'shed', 'pool', 'deck', 'patio', 'pergola',
-      'verandah', 'balcony', 'fence', 'wall', 'driveway',
+      "carport", "garage", "shed", "pool", "deck", "patio", "pergola",
+      "verandah", "balcony", "fence", "wall", "driveway",
       # Development types
-      'subdivision', 'demolition', 'construction', 'development',
+      "subdivision", "demolition", "construction", "development",
       # Services/utilities
-      'signage', 'telecommunications', 'stormwater', 'water', 'sewer',
+      "signage", "telecommunications", "stormwater", "water", "sewer",
       # Approvals/certificates
-      'certificate', 'approval', 'consent', 'permit'
+      "certificate", "approval", "consent", "permit"
     ].freeze
-
 
     def self.fetch_url_head(url)
       agent = Mechanize.new
-      # FIXME - Allow injection of a check to agree to terms if needed to set a cookie and reget the url
+      # FIXME: - Allow injection of a check to agree to terms if needed to set a cookie and reget the url
       agent.head(url)
     end
 
     def self.fetch_url_with_redirects(url)
       agent = Mechanize.new
-      # FIXME - Allow injection of a check to agree to terms if needed to set a cookie and reget the url
+      # FIXME: - Allow injection of a check to agree to terms if needed to set a cookie and reget the url
       agent.get(url)
     end
 
-    def self.authority_label(results, prefix: '', suffix: '')
+    def self.authority_label(results, prefix: "", suffix: "")
       return nil if results.nil?
 
-      authority_labels = results.map { |record| record['authority_label'] }.compact.uniq
+      authority_labels = results.map { |record| record["authority_label"] }.compact.uniq
       return nil if authority_labels.empty?
 
-      raise "Expected one authority_label, not #{authority_labels.inspect}" if authority_labels.size > 1
+      if authority_labels.size > 1
+        raise "Expected one authority_label, not #{authority_labels.inspect}"
+      end
+
       "#{prefix}#{authority_labels.first}#{suffix}"
     end
 
@@ -95,7 +97,8 @@ module ScraperUtils
       duplicates = groups.select { |_k, g| g.size > 1 }
       return if duplicates.empty?
 
-      raise UnprocessableSite, "Duplicate authority labels: #{duplicates.keys.map(&:inspect).join(', ')}"
+      raise UnprocessableSite,
+            "Duplicate authority labels: #{duplicates.keys.map(&:inspect).join(', ')}"
     end
 
     # Validates enough addresses are geocodable
@@ -105,28 +108,32 @@ module ScraperUtils
     # @param ignore_case [Boolean] Ignores case which relaxes suburb check
     # @param known_suburbs [Array<String>] Known suburbs to detect in address when there is no postcode and no uppercase suburb
     # @raise RuntimeError if insufficient addresses are geocodable
-    def self.validate_addresses_are_geocodable!(results, percentage: 50, variation: 3, ignore_case: false, known_suburbs: [])
+    def self.validate_addresses_are_geocodable!(results, percentage: 50, variation: 3,
+                                                ignore_case: false, known_suburbs: [])
       return nil if results.empty?
 
       geocodable = results
-                     .map { |record| record["address"] }
-                     .uniq
-                     .count do |text|
-                       ok = ScraperUtils::SpecSupport.geocodable? text, known_suburbs: known_suburbs, ignore_case: ignore_case
-                        if !ok && DebugUtils.verbose?
-                          ScraperUtils::LogUtils.log(
-                            "Address: #{text.inspect} is not geocodeable with #{known_suburbs&.size} know suburbs, ignore_case: #{ignore_case.inspect}"
-                          )
-                        end
+                   .map { |record| record["address"] }
+                   .uniq
+                   .count do |text|
+        ok = ScraperUtils::SpecSupport.geocodable? text,
+                                                   known_suburbs: known_suburbs, ignore_case: ignore_case
+        if !ok && DebugUtils.verbose?
+          ScraperUtils::LogUtils.log(
+            "Address: #{text.inspect} is not geocodeable with #{known_suburbs&.size} know suburbs, ignore_case: #{ignore_case.inspect}"
+          )
+        end
 
-                       ok
-                       end
-      puts "Found #{geocodable} out of #{results.count} unique geocodable addresses " \
-             "(#{(100.0 * geocodable / results.count).round(1)}%)"
-      expected = [((percentage.to_f / 100.0) * results.count - variation), 1].max
-      unless geocodable >= expected
-        raise UnprocessableSite, "Expected at least #{expected} (#{percentage}% - #{variation}) geocodable addresses, got #{geocodable}"
+        ok
       end
+      puts "Found #{geocodable} out of #{results.count} unique geocodable addresses " \
+           "(#{(100.0 * geocodable / results.count).round(1)}%)"
+      expected = [(((percentage.to_f / 100.0) * results.count) - variation), 1].max
+      unless geocodable >= expected
+        raise UnprocessableSite,
+              "Expected at least #{expected} (#{percentage}% - #{variation}) geocodable addresses, got #{geocodable}"
+      end
+
       geocodable
     end
 
@@ -138,10 +145,13 @@ module ScraperUtils
     # @return [Boolean] True if the address appears to be geocodable.
     def self.geocodable?(address, ignore_case: false, known_suburbs: [])
       return false if address.nil? || address.empty?
+
       check_address = ignore_case ? address.upcase : address
 
       # Basic structure check - must have a street type or unit/lot, uppercase suburb or postcode, state
-      has_state = AUSTRALIAN_STATES.any? { |state| check_address.end_with?(" #{state}") || check_address.include?(" #{state} ") }
+      has_state = AUSTRALIAN_STATES.any? do |state|
+        check_address.end_with?(" #{state}") || check_address.include?(" #{state} ")
+      end
       has_postcode = address.match?(AUSTRALIAN_POSTCODES)
 
       # Using the pre-compiled patterns
@@ -154,9 +164,13 @@ module ScraperUtils
       if ENV["DEBUG"]
         missing = []
         missing << "street type" unless has_street_type
-        missing << "postcode/Uppercase suburb/Known suburb" unless has_postcode || has_uppercase_suburb || has_known_suburb
+        unless has_postcode || has_uppercase_suburb || has_known_suburb
+          missing << "postcode/Uppercase suburb/Known suburb"
+        end
         missing << "state" unless has_state
-        puts "  address: #{address} is not geocodable, missing #{missing.join(', ')}" if missing.any?
+        if missing.any?
+          puts "  address: #{address} is not geocodable, missing #{missing.join(', ')}"
+        end
       end
 
       has_street_type && (has_postcode || has_uppercase_suburb || has_known_suburb) && has_state
@@ -183,17 +197,21 @@ module ScraperUtils
       return nil if results.empty?
 
       descriptions = results
-                       .map { |record| record["description"] }
-                       .uniq
-                       .count do |text|
+                     .map { |record| record["description"] }
+                     .uniq
+                     .count do |text|
         selected = ScraperUtils::SpecSupport.reasonable_description? text
         puts "  description: #{text} is not reasonable" if ENV["DEBUG"] && !selected
         selected
       end
       puts "Found #{descriptions} out of #{results.count} unique reasonable descriptions " \
-             "(#{(100.0 * descriptions / results.count).round(1)}%)"
-      expected = [(percentage.to_f / 100.0) * results.count - variation, 1].max
-      raise UnprocessableSite, "Expected at least #{expected} (#{percentage}% - #{variation}) reasonable descriptions, got #{descriptions}" unless descriptions >= expected
+           "(#{(100.0 * descriptions / results.count).round(1)}%)"
+      expected = [((percentage.to_f / 100.0) * results.count) - variation, 1].max
+      unless descriptions >= expected
+        raise UnprocessableSite,
+              "Expected at least #{expected} (#{percentage}% - #{variation}) reasonable descriptions, got #{descriptions}"
+      end
+
       descriptions
     end
 
@@ -216,7 +234,8 @@ module ScraperUtils
     # @param bot_check_expected [Boolean] Whether bot protection is acceptable
     # @yield [String] Optional block to customize URL fetching (e.g., handle terms agreement)
     # @raise RuntimeError if records don't use the expected URL or it doesn't return 200
-    def self.validate_uses_one_valid_info_url!(results, expected_url, bot_check_expected: false, &block)
+    def self.validate_uses_one_valid_info_url!(results, expected_url, bot_check_expected: false,
+                                               &block)
       info_urls = results.map { |record| record["info_url"] }.uniq
 
       unless info_urls.size == 1
@@ -262,7 +281,8 @@ module ScraperUtils
     # @param bot_check_expected [Boolean] Whether bot protection is acceptable
     # @yield [String] Optional block to customize URL fetching (e.g., handle terms agreement)
     # @raise RuntimeError if insufficient detail checks pass
-    def self.validate_info_urls_have_expected_details!(results, percentage: 75, variation: 3, bot_check_expected: false, &block)
+    def self.validate_info_urls_have_expected_details!(results, percentage: 75, variation: 3,
+                                                       bot_check_expected: false, &block)
       if defined?(VCR)
         VCR.use_cassette("#{authority_label(results, suffix: '_')}info_urls") do
           check_info_url_details(results, percentage, variation, bot_check_expected, &block)
@@ -284,15 +304,15 @@ module ScraperUtils
 
       # Check for common bot protection indicators
       bot_indicators = [
-        'recaptcha',
-        'cloudflare',
-        'are you human',
-        'bot detection',
-        'security check',
-        'verify you are human',
-        'access denied',
-        'blocked',
-        'captcha'
+        "recaptcha",
+        "cloudflare",
+        "are you human",
+        "bot detection",
+        "security check",
+        "verify you are human",
+        "access denied",
+        "blocked",
+        "captcha"
       ]
 
       bot_indicators.any? { |indicator| body_lower.include?(indicator) }
@@ -308,10 +328,10 @@ module ScraperUtils
         return
       end
 
-      raise "Expected 200 response from the one expected info_url, got #{page.code}" unless page.code == "200"
-    end
+      return if page.code == "200"
 
-    private
+      raise "Expected 200 response from the one expected info_url, got #{page.code}"
+    end
 
     def self.check_info_url_is_present(results, percentage, variation, &block)
       count = 0
@@ -337,17 +357,21 @@ module ScraperUtils
 
         count += 1
         if status.between?(200, 299)
-          puts "  OK: #{status}" if ENV['DEBUG']
+          puts "  OK: #{status}" if ENV["DEBUG"]
         else
           failed += 1
           puts "  Failed: #{status}"
-          min_required = ((percentage.to_f / 100.0) * count - variation).round(0)
+          min_required = (((percentage.to_f / 100.0) * count) - variation).round(0)
           passed = count - failed
-          raise "Too many failures: #{passed}/#{count} passed (min required: #{min_required})" if passed < min_required
+          if passed < min_required
+            raise "Too many failures: #{passed}/#{count} passed (min required: #{min_required})"
+          end
         end
       end
 
-      puts "#{(100.0 * (count - failed) / count).round(1)}% info_url checks passed (#{failed}/#{count} failed)!" if count > 0
+      return unless count > 0
+
+      puts "#{(100.0 * (count - failed) / count).round(1)}% info_url checks passed (#{failed}/#{count} failed)!"
     end
 
     def self.check_info_url_details(results, percentage, variation, bot_check_expected, &block)
@@ -367,7 +391,10 @@ module ScraperUtils
           next
         end
 
-        raise UnprocessableRecord, "Expected 200 response, got #{page.code}" unless page.code == "200"
+        unless page.code == "200"
+          raise UnprocessableRecord,
+                "Expected 200 response, got #{page.code}"
+        end
 
         page_body = page.body.dup.force_encoding("UTF-8").gsub(/\s\s+/, " ")
 
@@ -375,34 +402,40 @@ module ScraperUtils
           count += 1
           expected = CGI.escapeHTML(record[attribute]).gsub(/\s\s+/, " ")
           expected2 = case attribute
-                      when 'council_reference'
-                        expected.sub(/\ADA\s*-\s*/, '')
-                      when 'address'
-                        expected.sub(/(\S+)\s+(\S+)\z/, '\2 \1').sub(/,\s*\z/, '') # Handle Lismore post-code/state swap
+                      when "council_reference"
+                        expected.sub(/\ADA\s*-\s*/, "")
+                      when "address"
+                        expected.sub(/(\S+)\s+(\S+)\z/, '\2 \1').sub(/,\s*\z/, "") # Handle Lismore post-code/state swap
                       else
                         expected
                       end
           expected3 = case attribute
-                      when 'address'
-                        expected.sub(/\s*,?\s+(VIC|NSW|QLD|SA|TAS|WA|ACT|NT)\z/, '')
+                      when "address"
+                        expected.sub(/\s*,?\s+(VIC|NSW|QLD|SA|TAS|WA|ACT|NT)\z/, "")
                       else
                         expected
-                      end.gsub(/\s*,\s*/, ' ').gsub(/\s*-\s*/, '-')
-          next if page_body.include?(expected) || page_body.include?(expected2) || page_body.gsub(/\s*,\s*/, ' ').gsub(/\s*-\s*/, '-').include?(expected3)
+                      end.gsub(/\s*,\s*/, " ").gsub(/\s*-\s*/, "-")
+          next if page_body.include?(expected) || page_body.include?(expected2) || page_body.gsub(/\s*,\s*/, " ").gsub(
+            /\s*-\s*/, "-"
+          ).include?(expected3)
 
           failed += 1
-          desc2 = expected2 == expected ? '' : " or #{expected2.inspect}"
-          desc3 = expected3 == expected ? '' : " or #{expected3.inspect}"
+          desc2 = expected2 == expected ? "" : " or #{expected2.inspect}"
+          desc3 = expected3 == expected ? "" : " or #{expected3.inspect}"
           puts "  Missing: #{expected.inspect}#{desc2}#{desc3}"
-          puts "    IN: #{page_body}" if ENV['DEBUG']
+          puts "    IN: #{page_body}" if ENV["DEBUG"]
 
-          min_required = ((percentage.to_f / 100.0) * count - variation).round(0)
+          min_required = (((percentage.to_f / 100.0) * count) - variation).round(0)
           passed = count - failed
-          raise "Too many failures: #{passed}/#{count} passed (min required: #{min_required})" if passed < min_required
+          if passed < min_required
+            raise "Too many failures: #{passed}/#{count} passed (min required: #{min_required})"
+          end
         end
       end
 
-      puts "#{(100.0 * (count - failed) / count).round(1)}% detail checks passed (#{failed}/#{count} failed)!" if count > 0
+      return unless count > 0
+
+      puts "#{(100.0 * (count - failed) / count).round(1)}% detail checks passed (#{failed}/#{count} failed)!"
     end
   end
 end

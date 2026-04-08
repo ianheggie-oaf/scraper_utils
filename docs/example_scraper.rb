@@ -22,13 +22,11 @@ class Scraper
       # REPLACE section with:
       ScraperUtils::DataQualityMonitor.start_authority(authority_label)
       YourScraper.scrape(authority_label) do |record|
-        begin
-          record["authority_label"] = authority_label.to_s
-          ScraperUtils::DbUtils.save_record(record)
-        rescue ScraperUtils::UnprocessableRecord => e
-          ScraperUtils::DataQualityMonitor.log_unprocessable_record(e, record)
-          exceptions[authority_label] = e
-        end
+        record["authority_label"] = authority_label.to_s
+        ScraperUtils::DbUtils.save_record(record)
+      rescue ScraperUtils::UnprocessableRecord => e
+        ScraperUtils::DataQualityMonitor.log_unprocessable_record(e, record)
+        exceptions[authority_label] = e
       end
       # END OF REPLACE
     rescue StandardError => e
@@ -61,7 +59,7 @@ class Scraper
       puts "Now retrying authorities which earlier had failures"
       puts exceptions.keys.join(", ")
       puts "***************************************************"
-      ENV['DEBUG'] ||= '1'
+      ENV["DEBUG"] ||= "1"
 
       start_time = Time.now
       exceptions = scrape(exceptions.keys, 2)
@@ -85,12 +83,11 @@ if __FILE__ == $PROGRAM_NAME
   # some: url-for-issue Summary Reason
   # councils: url-for-issue Summary Reason
 
-  if ENV['MORPH_EXPECT_BAD'].nil?
-    default_expect_bad = {
-    }
-    puts 'Default EXPECT_BAD:', default_expect_bad.to_yaml if default_expect_bad.any?
+  if ENV["MORPH_EXPECT_BAD"].nil?
+    default_expect_bad = {}
+    puts "Default EXPECT_BAD:", default_expect_bad.to_yaml if default_expect_bad.any?
 
-    ENV["MORPH_EXPECT_BAD"] = default_expect_bad.keys.join(',')
+    ENV["MORPH_EXPECT_BAD"] = default_expect_bad.keys.join(",")
   end
   # If the sites have many unusable records - raise defaults
   # ENV['MORPH_UNPROCESSABLE_BASE'] ||= "10"

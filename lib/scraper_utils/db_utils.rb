@@ -63,12 +63,16 @@ module ScraperUtils
       LogUtils.log "Deleting #{deleted_count} applications scraped between #{oldest_date} and #{cutoff_date}"
       ScraperWiki.sqliteexecute("DELETE FROM data WHERE date_scraped < ?", [cutoff_date])
 
-      return unless rand < 0.03 || (oldest_date && oldest_date < vacuum_cutoff_date) || ENV["VACUUM"] || force
+      unless rand < 0.03 || (oldest_date && oldest_date < vacuum_cutoff_date) || ENV["VACUUM"] || force
+        return
+      end
 
       LogUtils.log "  Running VACUUM to reclaim space..."
       ScraperWiki.sqliteexecute("VACUUM")
     rescue SqliteMagic::NoSuchTable => e
-      ScraperUtils::LogUtils.log "Ignoring: #{e} whilst cleaning old records" if ScraperUtils::DebugUtils.trace?
+      if ScraperUtils::DebugUtils.trace?
+        ScraperUtils::LogUtils.log "Ignoring: #{e} whilst cleaning old records"
+      end
     end
   end
 end

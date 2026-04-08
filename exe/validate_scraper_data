@@ -26,7 +26,7 @@ if File.exist?(config_file)
     config = YAML.safe_load(File.read(config_file), symbolize_names: true)
     options.merge!(config) if config
     puts "Loaded config from #{config_file}"
-  rescue => e
+  rescue StandardError => e
     puts "Warning: Could not load #{config_file}: #{e.message}"
   end
 end
@@ -38,19 +38,23 @@ OptionParser.new do |opts|
     options[:database] = db
   end
 
-  opts.on("-g", "--geocodable-percentage N", Integer, "Min percentage of geocodable addresses (default: 50)") do |n|
+  opts.on("-g", "--geocodable-percentage N", Integer,
+          "Min percentage of geocodable addresses (default: 50)") do |n|
     options[:geocodable_percentage] = n
   end
 
-  opts.on("-r", "--description-percentage N", Integer, "Min percentage of reasonable descriptions (default: 50)") do |n|
+  opts.on("-r", "--description-percentage N", Integer,
+          "Min percentage of reasonable descriptions (default: 50)") do |n|
     options[:description_percentage] = n
   end
 
-  opts.on("-u", "--info-url-percentage N", Integer, "Min percentage for info URL validation (default: 75)") do |n|
+  opts.on("-u", "--info-url-percentage N", Integer,
+          "Min percentage for info URL validation (default: 75)") do |n|
     options[:info_url_percentage] = n
   end
 
-  opts.on("-v", "--variation N", Integer, "Variation tolerance for all validations (default: 3)") do |n|
+  opts.on("-v", "--variation N", Integer,
+          "Variation tolerance for all validations (default: 3)") do |n|
     options[:geocodable_variation] = n
     options[:description_variation] = n
     options[:info_url_variation] = n
@@ -60,11 +64,13 @@ OptionParser.new do |opts|
     options[:bot_check_expected] = true
   end
 
-  opts.on("-i", "--global-info-url URL", "Validate all records use this global info URL (auto-detected if all URLs are the same)") do |url|
+  opts.on("-i", "--global-info-url URL",
+          "Validate all records use this global info URL (auto-detected if all URLs are the same)") do |url|
     options[:global_info_url] = url
   end
 
-  opts.on("-c", "--config FILE", "Load config from YAML file (default: .scraper_validation.yml)") do |file|
+  opts.on("-c", "--config FILE",
+          "Load config from YAML file (default: .scraper_validation.yml)") do |file|
     config_file = file
   end
 
@@ -142,7 +148,6 @@ begin
 
   puts
   puts "✅ All validations passed!"
-
 rescue RuntimeError => e
   puts
   puts "❌ Validation failed: #{e.message}"

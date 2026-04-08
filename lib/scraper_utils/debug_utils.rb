@@ -18,7 +18,7 @@ module ScraperUtils
     # Checks DEBUG and MORPH_DEBUG env variables
     # @return [Integer] Debug level
     def self.debug_level
-      debug = ENV.fetch(DEBUG_ENV_VAR, ENV.fetch(MORPH_DEBUG_ENV_VAR, '0'))
+      debug = ENV.fetch(DEBUG_ENV_VAR, ENV.fetch(MORPH_DEBUG_ENV_VAR, "0"))
       debug =~ /^\d/ ? debug.to_i : BASIC_LEVEL
     end
 
@@ -47,7 +47,6 @@ module ScraperUtils
     def self.trace?
       debug?(TRACE_LEVEL)
     end
-
 
     # Logs details of an HTTP request when debug mode is enabled
     #

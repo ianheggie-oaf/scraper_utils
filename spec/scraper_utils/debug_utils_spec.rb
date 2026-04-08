@@ -89,7 +89,7 @@ RSpec.describe ScraperUtils::DebugUtils do
       stub_request(:get, "https://example.com/test")
         .to_return(
           body: "<html><title>Test Page</title><body>Test Content</body></html>",
-          headers: {'Content-Type' => 'text/html'}
+          headers: { "Content-Type" => "text/html" }
         )
     end
 
@@ -109,7 +109,7 @@ RSpec.describe ScraperUtils::DebugUtils do
       it "prints page title and URI" do
         expect do
           described_class.debug_page(page, message)
-        end.to output(/Current URL: https:\/\/example.com\/test/).to_stdout
+        end.to output(%r{Current URL: https://example.com/test}).to_stdout
 
         expect do
           described_class.debug_page(page, message)
@@ -122,7 +122,7 @@ RSpec.describe ScraperUtils::DebugUtils do
         stub_request(:get, "https://example.com/no-title")
           .to_return(
             body: "<html><body>No Title Content</body></html>",
-            headers: {'Content-Type' => 'text/html'}
+            headers: { "Content-Type" => "text/html" }
           )
 
         allow(described_class).to receive(:trace?).and_return(true)
@@ -133,7 +133,7 @@ RSpec.describe ScraperUtils::DebugUtils do
       it "handles missing title gracefully" do
         expect do
           described_class.debug_page(no_title_page, message)
-        end.to output(/Current URL: https:\/\/example.com\/no-title/).to_stdout
+        end.to output(%r{Current URL: https://example.com/no-title}).to_stdout
 
         # Should not output page title section
         expect do
@@ -158,7 +158,7 @@ RSpec.describe ScraperUtils::DebugUtils do
       stub_request(:get, "https://example.com/elements")
         .to_return(
           body: "<html><body><div class='test'>Test Element</div></body></html>",
-          headers: {'Content-Type' => 'text/html'}
+          headers: { "Content-Type" => "text/html" }
         )
     end
 

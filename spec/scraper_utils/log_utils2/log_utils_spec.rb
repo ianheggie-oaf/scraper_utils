@@ -167,9 +167,7 @@ RSpec.describe ScraperUtils::LogUtils do
 
       # Capture the log record when it's saved
       allow(ScraperWiki).to receive(:save_sqlite) do |_keys, record, table|
-        if table == ScraperUtils::LogUtils::LOG_TABLE
-          log_record = record
-        end
+        log_record = record if table == ScraperUtils::LogUtils::LOG_TABLE
       end
 
       described_class.log_scraping_run(run_at, 1, [:complex_council],

@@ -30,8 +30,13 @@ module ScraperUtils
     # Initial base of 5.01 (override using MORPH_UNPROCESSABLE_BASE)
     # Initial percentage of 10% (override using MORPH_UNPROCESSABLE_PERCENTAGE)
     def self.threshold(authority_label)
-      ENV.fetch('MORPH_UNPROCESSABLE_BASE', 5.01).to_f +
-        (@stats[authority_label][:saved].to_i * ENV.fetch('MORPH_UNPROCESSABLE_PERCENTAGE', 10.0).to_f / 100.0) if @stats&.fetch(authority_label, nil)
+      if @stats&.fetch(
+        authority_label, nil
+      )
+        ENV.fetch("MORPH_UNPROCESSABLE_BASE", 5.01).to_f +
+          (@stats[authority_label][:saved].to_i * ENV.fetch("MORPH_UNPROCESSABLE_PERCENTAGE",
+                                                            10.0).to_f / 100.0)
+      end
     end
 
     # Logs an unprocessable record and raises an exception if error threshold is exceeded
@@ -44,7 +49,7 @@ module ScraperUtils
     def self.log_unprocessable_record(exception, record)
       authority_label = extract_authority(record)
       @stats[authority_label][:unprocessed] += 1
-      details = if record&.key?('council_reference') && record&.key?('address')
+      details = if record&.key?("council_reference") && record&.key?("address")
                   "#{record['council_reference']} - #{record['address']}"
                 else
                   record.inspect
@@ -64,7 +69,7 @@ module ScraperUtils
     def self.log_saved_record(record)
       authority_label = extract_authority(record)
       @stats[authority_label][:saved] += 1
-      ScraperUtils::LogUtils.log "Saving record #{authority_label&.empty? ? '' : "for #{authority_label}: "}#{record['council_reference']} - #{record['address']}"
+      ScraperUtils::LogUtils.log "Saving record #{"for #{authority_label}: " unless authority_label&.empty?}#{record['council_reference']} - #{record['address']}"
     end
   end
 end

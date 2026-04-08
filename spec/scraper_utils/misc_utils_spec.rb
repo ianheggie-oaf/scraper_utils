@@ -2,10 +2,10 @@
 
 require_relative "../spec_helper"
 
-RSpec.describe 'ScraperUtils::MiscUtils' do
+RSpec.describe "ScraperUtils::MiscUtils" do
   describe "#throttle_block" do
-    context 'when run the first time' do
-      it 'does not sleep' do
+    context "when run the first time" do
+      it "does not sleep" do
         expect(ScraperUtils::MiscUtils).not_to receive(:sleep)
         was_called = false
         ScraperUtils::MiscUtils.throttle_block do
@@ -14,7 +14,7 @@ RSpec.describe 'ScraperUtils::MiscUtils' do
         expect(was_called).to be_truthy
       end
 
-      it 'sets pause interval for next time' do
+      it "sets pause interval for next time" do
         was_called = false
         started = Time.now
         ScraperUtils::MiscUtils.throttle_block do
@@ -27,7 +27,7 @@ RSpec.describe 'ScraperUtils::MiscUtils' do
       end
     end
 
-    # FIXME - Provide an equivalent test
+    # FIXME: - Provide an equivalent test
     # context 'when run subsequently' do
     #   it 'pauses before calling the block' do
     #     ScraperUtils::MiscUtils.pause_duration = 4.5
@@ -39,6 +39,5 @@ RSpec.describe 'ScraperUtils::MiscUtils' do
     #     expect(was_called).to be_truthy
     #   end
     # end
-
   end
 end
